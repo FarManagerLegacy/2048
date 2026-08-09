@@ -16,8 +16,12 @@ end
 function M.update(far, hdlg, ids, geom, session, request_redraw)
   if not hdlg then return end
   local width = geom.stats_label_width
+  local score_text = string.format("%d", session.score)
+  if session:has_pending_score() then
+    score_text = score_text .. string.format(" +%d", session.pending_score)
+  end
   far.SendDlgMessage(hdlg, "DM_SETTEXTPTR", ids.score,
-    make_stat_label("Score: ", width) .. string.format("%d", session.score))
+    make_stat_label("Score: ", width) .. score_text)
   far.SendDlgMessage(hdlg, "DM_SETTEXTPTR", ids.best,
     make_stat_label("Best: ", width) .. string.format("%d", session.best))
   far.SendDlgMessage(hdlg, "DM_SETTEXTPTR", ids.moves,
@@ -28,7 +32,8 @@ function M.update(far, hdlg, ids, geom, session, request_redraw)
   far.SendDlgMessage(hdlg, "DM_SETTEXTPTR", ids.pause_button,
     session.paused and "Un&pause" or "&Pause")
   far.SendDlgMessage(hdlg, "DM_ENABLE", ids.undo_button, session:can_undo())
-  far.SendDlgMessage(hdlg, "DM_SETTEXTPTR", ids.status, M.format_status(session.status))
+  far.SendDlgMessage(hdlg, "DM_SETTEXTPTR", ids.status,
+    session:has_pending_score() and "" or M.format_status(session.status))
   if request_redraw then request_redraw() end
 end
 

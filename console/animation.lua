@@ -14,6 +14,7 @@ local function play_phase(phase, stats, palette, delay)
     render.render_frame({
       tiles = tiles,
       score = stats.score,
+      score_delta = stats.score_delta,
       best = stats.best,
       moves_count = stats.moves_count,
       elapsed_seconds = stats.elapsed_seconds,

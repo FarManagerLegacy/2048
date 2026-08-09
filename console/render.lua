@@ -84,6 +84,8 @@ end
 function M.render_frame(opts)
   local tiles = opts.tiles
   local score = opts.score
+  local score_delta = opts.score_delta or 0
+  if score_delta > 0 then score = string.format("%d +%d", score, score_delta) end
   local best = opts.best
   local moves_count = opts.moves_count
   local elapsed_seconds = opts.elapsed_seconds

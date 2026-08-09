@@ -42,15 +42,17 @@ local function main()
     end
 
     local function do_render()
-      local effect = status_effect.compute(session.status, session.paused, session.palette,
+      local visual_status = session:has_pending_score() and "" or session.status
+      local effect = status_effect.compute(visual_status, session.paused, session.palette,
         session:current_elapsed())
       render.render_frame({
         tiles = tiles_mod.board_to_tiles(session.board),
         score = session.score,
+        score_delta = session.pending_score,
         best = session.best,
         moves_count = session.moves_count,
         elapsed_seconds = session:current_elapsed(),
-        status_text = session.status,
+        status_text = visual_status,
         palette = session.palette,
         paused = session.paused,
         board_tint = effect.board_tint,
@@ -146,8 +148,14 @@ local function main()
               best = session.best,
               moves_count = session.moves_count,
               elapsed_seconds = session:current_elapsed(),
+              score_delta = 0,
             }, session.palette
           )
+          if session:has_pending_score() then
+            do_render()
+            platform.sleep(1)
+            session:settle_score()
+          end
           save_current()
           do_render()
           last_shown_second = math.floor(session:current_elapsed())

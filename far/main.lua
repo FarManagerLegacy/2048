@@ -37,6 +37,7 @@ local function main()
   local active_animation
   local current_focus
   local previous_focus
+  local settling_score = false
 
   local function set_animation_timer_interval()
     if not timer or not active_animation or active_animation:is_done() then return end
@@ -80,7 +81,19 @@ local function main()
     return save.save_state(session:snapshot())
   end
 
+  local function settle_score_now()
+    if not session:has_pending_score() then return end
+    session:settle_score()
+    settling_score = false
+    active_animation = nil
+    if timer then timer.Enabled = false end
+    sync_clock_timer_interval()
+    save_current()
+    update_view()
+  end
+
   local function begin_move(direction)
+    if session:has_pending_score() then settle_score_now() end
     if active_animation and not active_animation:is_done() then return end
     local result = session:move(direction)
     if not result.changed then return end
@@ -103,17 +116,32 @@ local function main()
       active_animation:advance(config.FRAMES_PER_TICK)
       request_redraw()
       if active_animation:is_done() then
-        handle.Enabled = false
-        save_current()
+        if session:has_pending_score() then
+          settling_score = true
+          handle.Interval = 1000
+          update_view()
+        else
+          handle.Enabled = false
+          save_current()
+        end
       else
         set_animation_timer_interval()
       end
+    elseif settling_score then
+      session:settle_score()
+      settling_score = false
+      active_animation = nil
+      handle.Enabled = false
+      sync_clock_timer_interval()
+      save_current()
+      update_view()
     else
       handle.Enabled = false
     end
   end
 
   local function reset_to_new_game()
+    settle_score_now()
     session:restart()
     sync_clock_timer_interval()
     active_animation = nil
@@ -124,6 +152,7 @@ local function main()
   end
 
   local function undo_last_move()
+    settle_score_now()
     if not session:undo() then return end
     sync_clock_timer_interval()
     active_animation = nil
@@ -133,12 +162,14 @@ local function main()
   end
 
   local function cycle_palette()
+    settle_score_now()
     session:cycle_palette()
     save_current()
     update_view()
   end
 
   local function toggle_pause()
+    settle_score_now()
     session:set_paused(not session.paused)
     if timer then
       timer.Enabled = not session.paused and active_animation ~= nil
@@ -238,7 +269,8 @@ local function main()
     end
 
     if msg == F.DN_CTLCOLORDLGITEM and param1 == item_ids.status then
-      return view.apply_status_colors(F, bor, session.status, param2)
+      return view.apply_status_colors(F, bor,
+        session:has_pending_score() and "" or session.status, param2)
     end
 
     if not F.DN_KEY and msg == F.DN_CONTROLINPUT and param2.KeyDown ~= false then
@@ -250,6 +282,7 @@ local function main()
     end
 
     if msg == F.DN_CLOSE then
+      settle_score_now()
       if closed then return true end
       closed = true
       hdlg = nil

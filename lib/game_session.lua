@@ -52,6 +52,7 @@ function M.new(options)
     clock = clock,
     spawn_tile = spawn_tile,
     new_game = options.new_game,
+    pending_score = 0,
   }, Session)
 
   if options.history then
@@ -100,7 +101,7 @@ function Session:resume_time()
 end
 
 function Session:move(direction)
-  if self.paused or self.status ~= "" then
+  if self.paused or self.status ~= "" or self.pending_score > 0 then
     return { changed = false, reason = "inactive" }
   end
 
@@ -114,8 +115,7 @@ function Session:move(direction)
   local spawned = self.spawn_tile(spawned_board)
 
   self.board = spawned_board
-  self.score = self.score + gained
-  self.best = math.max(self.best, self.score)
+  self.pending_score = gained
   self.moves_count = self.moves_count + 1
   self.status = board_mod.compute_status(self.board)
   if self.status ~= "" then
@@ -133,10 +133,26 @@ function Session:move(direction)
   }
 end
 
+function Session:settle_score()
+  local gained = self.pending_score
+  if gained > 0 then
+    self.score = self.score + gained
+    self.best = math.max(self.best, self.score)
+    self.pending_score = 0
+  end
+  return gained
+end
+
+function Session:has_pending_score()
+  return self.pending_score > 0
+end
+
 function Session:restart()
+  if self:has_pending_score() then return false end
   self:_push_history()
   self.board = self.new_game and self.new_game() or default_new_game(self.spawn_tile)
   self.score = 0
+  self.pending_score = 0
   self.moves_count = 0
   self.elapsed_seconds = 0
   self.status = board_mod.compute_status(self.board)
@@ -145,11 +161,13 @@ function Session:restart()
 end
 
 function Session:undo()
+  if self:has_pending_score() then return false end
   local entry = table.remove(self.history)
   if not entry then return false end
 
   self.board = board_mod.copy_board(entry.board)
   self.score = entry.score
+  self.pending_score = 0
   self.moves_count = entry.moves_count
   self.elapsed_seconds = entry.elapsed_seconds
   self.status = board_mod.compute_status(self.board)
