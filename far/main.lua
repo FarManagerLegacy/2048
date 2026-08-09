@@ -16,6 +16,7 @@ local tiles_mod = loader("lib/tiles")
 local save = loader("lib/save")
 local layout = loader("far/dialog_layout")
 local view = loader("far/dialog_view")
+local DIRECTION_KEYS = { Left = "left", Up = "up", Right = "right", Down = "down" }
 
 local function main()
   local saved = save.load_state()
@@ -194,8 +195,17 @@ local function main()
       return view.apply_status_colors(F, bor, session.status, param2)
     end
 
-    if msg == F.DN_CONTROLINPUT and param1 == item_ids.usercontrol then
-      local key = far_backend.map_input_record(param2)
+    if not F.DN_KEY and msg == F.DN_CONTROLINPUT and param2.KeyDown ~= false then
+      local key = DIRECTION_KEYS[far.InputRecordToName(param2)]
+      if (key == "up" or key == "down" or key == "left" or key == "right")
+          and session.status == "" and not session.paused then
+        begin_move(key)
+        return true
+      end
+    end
+
+    if F.DN_KEY and msg == F.DN_KEY then
+      local key = DIRECTION_KEYS[far.KeyToName(param2)]
       if (key == "up" or key == "down" or key == "left" or key == "right")
           and session.status == "" and not session.paused then
         begin_move(key)

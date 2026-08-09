@@ -1,11 +1,4 @@
--- Console entry point. The game rules and mutable state live in
--- lib/game_session.lua; this file owns only the Windows loop and rendering.
-local ffi = require("ffi")
-if ffi.os ~= "Windows" then
-  io.stderr:write("This build targets Windows consoles (uses msvcrt for input).\n")
-  os.exit(1)
-end
-
+-- Console entry point. The game rules and mutable state live in lib/.
 local isMain = not loader
 loader = loader or dofile("loader.lua")() --luacheck: globals loader
 
@@ -16,7 +9,7 @@ local tiles_mod = loader("lib/tiles")
 local animation = loader("console/animation")
 local screens = loader("console/screens")
 local save = loader("lib/save")
-local winapi = loader("console/winapi")
+local platform = loader("console/platform")
 local config = loader("console/config")
 
 math.randomseed(os.time())
@@ -28,44 +21,51 @@ local function notify_finished_save(status)
     "\x1b[1mThe saved game already %s.\x1b[0m\n" ..
     "Starting a new game. Press any key to continue...\n", label))
   io.flush()
-  winapi._getch_byte()
+  platform.read_byte()
 end
 
 local function main()
-  winapi.enable_windows_ansi()
-  winapi.enter_alternate_screen()
-
-  local saved = save.load_state()
-  local session
-  if saved and board_mod.compute_status(saved.board) == "" then
-    session = game_session.new({ state = saved, clock = winapi.now })
-  elseif saved then
-    notify_finished_save(board_mod.compute_status(saved.board))
-    save.clear_save()
-  end
-  session = session or game_session.new({ clock = winapi.now })
-
-  local function save_current()
-    return save.save_state(session:snapshot())
+  local prepared, prepare_err = pcall(platform.prepare_console)
+  if not prepared then
+    local _, restore_err = platform.restore_console()
+    if restore_err then prepare_err = prepare_err .. "\n" .. restore_err end
+    error(prepare_err, 0)
   end
 
-  local function do_render()
-    render.render_frame({
-      tiles = tiles_mod.board_to_tiles(session.board),
-      score = session.score,
-      best = session.best,
-      moves_count = session.moves_count,
-      elapsed_seconds = session:current_elapsed(),
-      status_text = session.status,
-      palette = session.palette,
-      paused = session.paused,
-    })
-  end
+  local alternate = false
+  local ok, err = xpcall(function()
+    platform.enter_alternate_screen()
+    alternate = true
 
-  io.write("\x1b[2J\x1b[H\x1b[?25l")
-  io.flush()
+    local saved = save.load_state()
+    local session
+    if saved and board_mod.compute_status(saved.board) == "" then
+      session = game_session.new({ state = saved, clock = platform.now })
+    elseif saved then
+      notify_finished_save(board_mod.compute_status(saved.board))
+      save.clear_save()
+    end
+    session = session or game_session.new({ clock = platform.now })
 
-  local ok, err = pcall(function()
+    local function save_current()
+      return save.save_state(session:snapshot())
+    end
+
+    local function do_render()
+      render.render_frame({
+        tiles = tiles_mod.board_to_tiles(session.board),
+        score = session.score,
+        best = session.best,
+        moves_count = session.moves_count,
+        elapsed_seconds = session:current_elapsed(),
+        status_text = session.status,
+        palette = session.palette,
+        paused = session.paused,
+      })
+    end
+
+    io.write("\x1b[2J\x1b[H\x1b[?25l")
+    io.flush()
     do_render()
     local last_shown_second = math.floor(session:current_elapsed())
 
@@ -92,10 +92,10 @@ local function main()
       end
 
       local key
-      if winapi.kbhit() then
-        key = winapi.read_key()
+      if platform.kbhit() then
+        key = platform.read_key()
       else
-        winapi.sleep(config.IDLE_POLL_DELAY)
+        platform.sleep(config.IDLE_POLL_DELAY)
       end
 
       if key == nil then
@@ -143,7 +143,7 @@ local function main()
           -- Discard keys queued before this move. Keys pressed while the
           -- blocking animation is running are intentionally kept for the
           -- next loop iteration.
-          winapi.flush_input()
+          platform.flush_input()
           animation.play_move(
             result.new_board, result.moves, result.spawned_board, result.spawned,
             {
@@ -161,17 +161,22 @@ local function main()
 
       if key ~= nil and not (key == "up" or key == "down"
           or key == "left" or key == "right") then
-        winapi.flush_input()
+        platform.flush_input()
       end
       ::continue::
     end
-  end)
+  end, debug.traceback)
 
+  local restored, restore_err = platform.restore_console()
   io.write("\x1b[?25h" .. render.OUTER_RESET)
-  winapi.leave_alternate_screen()
+  if alternate then platform.leave_alternate_screen() end
   io.write("\n")
   io.flush()
-  if not ok then error(err, 0) end
+  if not ok then
+    if restore_err then err = err .. "\nTerminal restore failed: " .. restore_err end
+    error(err, 0)
+  end
+  if not restored then error(restore_err, 0) end
 end
 
 if isMain then

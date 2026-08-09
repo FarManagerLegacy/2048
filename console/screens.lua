@@ -3,15 +3,15 @@ local render = loader("console/render")
 local tiles_mod = loader("lib/tiles")
 local color = loader("lib/color")
 local util = loader("lib/util")
-local winapi = loader("console/winapi")
+local platform = loader("console/platform")
 local constants = loader("lib/constants")
 local config = loader("console/config")
 
 local M = {}
 
 local function read_key()
-  local key = winapi.read_key()
-  winapi.flush_input()
+  local key = platform.read_key()
+  platform.flush_input()
   return key
 end
 
@@ -19,14 +19,14 @@ function M.game_over_screen(board, score, best, moves_count, elapsed_seconds, ca
   local tiles = tiles_mod.board_to_tiles(board)
   local board_bg = color.board_bg_color(palette)
   local danger = { 140, 25, 25 }
-  local start = winapi.now()
+  local start = platform.now()
   while true do
-    if winapi.kbhit() then
+    if platform.kbhit() then
       local key = read_key()
       if key == "undo" and can_undo then return "undo" end
       if key == "restart" or key == "quit" then return key end
     end
-    local t = winapi.now() - start
+    local t = platform.now() - start
     local pulse = 0.20 + 0.15 * (0.5 + 0.5 * math.sin(t * 3.0))
     local tint = util.blend(board_bg, danger, pulse)
     local blink_on = (t % 1.0) < 0.6
@@ -36,7 +36,7 @@ function M.game_over_screen(board, score, best, moves_count, elapsed_seconds, ca
       status_color = { 255, 90, 90 }, board_tint = tint, blink_on = blink_on,
       palette = palette,
     })
-    winapi.sleep(config.END_SCREEN_TICK)
+    platform.sleep(config.END_SCREEN_TICK)
   end
 end
 
@@ -52,14 +52,14 @@ function M.win_screen(board, score, best, moves_count, elapsed_seconds, can_undo
     end
   end
   local sparkle_chars = { "*", "+", "." }
-  local start = winapi.now()
+  local start = platform.now()
   while true do
-    if winapi.kbhit() then
+    if platform.kbhit() then
       local key = read_key()
       if key == "undo" and can_undo then return "undo" end
       if key == "restart" or key == "quit" then return key end
     end
-    local t = winapi.now() - start
+    local t = platform.now() - start
     local pulse = 0.10 + 0.10 * (0.5 + 0.5 * math.sin(t * 2.0))
     local tint = util.blend(board_bg, gold, pulse)
     local hue = (t * 0.25) % 1.0
@@ -83,19 +83,19 @@ function M.win_screen(board, score, best, moves_count, elapsed_seconds, can_undo
       status_color = msg_color, board_tint = tint, blink_on = true,
       sparkles = sparkles, palette = palette,
     })
-    winapi.sleep(config.END_SCREEN_TICK)
+    platform.sleep(config.END_SCREEN_TICK)
   end
 end
 
 function M.pause_screen(board, score, best, moves_count, elapsed_seconds, palette)
   local tiles = tiles_mod.board_to_tiles(board)
-  local start = winapi.now()
+  local start = platform.now()
   while true do
-    if winapi.kbhit() then
+    if platform.kbhit() then
       local key = read_key()
       if key == "pause" or key == "quit" then return key end
     end
-    local t = winapi.now() - start
+    local t = platform.now() - start
     local blink_on = (t % 1.0) < 0.6
     render.render_frame({
       tiles = tiles, score = score, best = best, moves_count = moves_count,
@@ -103,7 +103,7 @@ function M.pause_screen(board, score, best, moves_count, elapsed_seconds, palett
       status_color = { 150, 190, 255 }, blink_on = blink_on, paused = true,
       palette = palette,
     })
-    winapi.sleep(config.END_SCREEN_TICK)
+    platform.sleep(config.END_SCREEN_TICK)
   end
 end
 

@@ -1,27 +1,60 @@
--- Unit tests for the platform-independent pieces of the I/O layer
--- (render.lua, animation.lua's pure math). winapi.lua is stubbed via
--- package.preload since it requires real Windows FFI.
+-- Unit tests for console rendering and platform key decoding.
 -- Run with: luajit tests/test_console_io.lua
 
 local loader = dofile("loader.lua")()
-
-local fake_now = 0.0
-package.preload["console.winapi"] = function()
-  return {
-    enable_windows_ansi = function() end,
-    sleep = function(_) fake_now = fake_now + 0.001 end,
-    now = function() return fake_now end,
-    kbhit = function() return false end,
-    read_key = function() return nil end,
-    flush_input = function() end,
-    _getch_byte = function() return string.byte("q") end,
-  }
-end
 
 local T = loader("tests/test_runner")
 local render = loader("console/render")
 local tiles_mod = loader("lib/tiles")
 local board = loader("lib/board")
+local platform = loader("console/platform")
+local ffi = require("ffi")
+
+T.describe("console.platform", function()
+  T.it("exposes the console facade without touching the terminal", function()
+    for _, name in ipairs({
+      "prepare_console", "restore_console", "sleep", "now", "kbhit",
+      "flush_input", "read_byte", "read_key", "_decode_key",
+    }) do
+      T.eq(type(platform[name]), "function")
+    end
+    T.eq(platform.restore_console(), true)
+  end)
+
+  T.it("maps common game keys", function()
+    local expected = {
+      { "w", "up" }, { "W", "up" }, { "a", "left" }, { "A", "left" },
+      { "s", "down" }, { "S", "down" }, { "d", "right" }, { "D", "right" },
+      { "u", "undo" }, { "U", "undo" }, { "p", "palette" },
+      { " ", "pause" }, { "r", "restart" }, { "R", "restart" },
+      { "q", "quit" }, { "Q", "quit" },
+    }
+    for _, item in ipairs(expected) do
+      T.eq(platform._decode_key(string.byte(item[1]), function() end), item[2])
+    end
+    T.eq(platform._decode_key(0x1b, function() end), "quit")
+    T.eq(platform._decode_key(string.byte("P"), function() end), nil)
+  end)
+
+  T.it("maps this platform's arrow byte sequences", function()
+    if ffi.os == "Windows" then
+      local codes = { [0x48] = "up", [0x50] = "down", [0x4b] = "left", [0x4d] = "right" }
+      for code, direction in pairs(codes) do
+        T.eq(platform._decode_key(0xe0, function() return code end), direction)
+        T.eq(platform._decode_key(0x00, function() return code end), direction)
+      end
+    else
+      local codes = { [0x41] = "up", [0x42] = "down", [0x43] = "right", [0x44] = "left" }
+      for code, direction in pairs(codes) do
+        for _, prefix in ipairs({ 0x5b, 0x4f }) do
+          local bytes = { prefix, code }
+          T.eq(platform._decode_key(0x1b, function() return table.remove(bytes, 1) end), direction)
+        end
+      end
+      T.eq(platform._decode_key(0x1b, function() return 0x5b end), "quit")
+    end
+  end)
+end)
 
 T.describe("render: board_to_tiles", function()
   T.it("converts 1-based board to 0-based tile list", function()

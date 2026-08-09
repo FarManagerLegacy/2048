@@ -2,7 +2,7 @@ local Info = Info or package.loaded.regscript or function(...) return ... end --
 local nfo = Info { _filename or ...,
   name        = "2048";
   description = "Classic 2048 game implementation";
-  version     = "0.1"; --https://semver.org/lang/ru/
+  version     = "0.2"; --https://semver.org/lang/ru/
   author      = "jd";
   url         = "https://forum.farmanager.com/viewtopic.php?t=13979";
   id          = "79CC0BD9-0AAB-4714-92BE-2E92C3C54DC0";

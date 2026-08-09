@@ -82,34 +82,4 @@ function M.draw_to_far_buffer(far_buffer, opts)
   end
 end
 
--- ---------------------------------------------------------------------
--- Input: map FAR's INPUT_RECORD (delivered via DN_INPUT / DN_KEY) to the
--- same logical key names winapi.lua's read_key() returns, so board.lua
--- callers and main*.lua's key dispatch stay identical across backends.
--- ---------------------------------------------------------------------
-
-local VK_MAP = {
-  [0x25] = "left",  -- VK_LEFT
-  [0x26] = "up",    -- VK_UP
-  [0x27] = "right", -- VK_RIGHT
-  [0x28] = "down",  -- VK_DOWN
-}
-
--- input_record: the table FAR passes as Param2 for a KEY_EVENT INPUT_RECORD.
--- Expected fields (per FAR's INPUT_RECORD -> Lua mapping): EventType,
--- VirtualKeyCode, UnicodeChar/AsciiChar, KeyDown.
-function M.map_input_record(input_record)
-  if input_record.EventType ~= (F and F.KEY_EVENT or 1) then
-    return nil
-  end
-  if input_record.KeyDown == false then
-    return nil -- ignore key-up events, mirroring msvcrt's "one event per press"
-  end
-
-  local mapped = VK_MAP[input_record.VirtualKeyCode]
-  if mapped then return mapped end
-
-  return nil
-end
-
 return M

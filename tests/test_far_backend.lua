@@ -10,8 +10,6 @@ far = { --luacheck: allow_defined
     return {}
   end,
 }
-F = { KEY_EVENT = 1 } --luacheck: allow_defined
-
 local backend = loader("far/backend")
 local geometry = loader("lib/geometry")
 
@@ -40,17 +38,6 @@ T.describe("far.backend", function()
     T.eq(backend._rgb_to_farcolor({ 0x11, 0x22, 0x33 }), 0x332211)
   end)
 
-  T.it("maps key-down arrow records and ignores other records", function()
-    T.eq(backend.map_input_record({
-      EventType = F.KEY_EVENT, KeyDown = true, VirtualKeyCode = 0x25,
-    }), "left")
-    T.eq(backend.map_input_record({
-      EventType = F.KEY_EVENT, KeyDown = false, VirtualKeyCode = 0x25,
-    }), nil)
-    T.eq(backend.map_input_record({
-      EventType = 99, KeyDown = true, VirtualKeyCode = 0x25,
-    }), nil)
-  end)
 end)
 
 T.summary_and_exit()

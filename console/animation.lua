@@ -2,7 +2,7 @@
 -- The FSM owns frame calculation; this module only advances it and renders.
 local animation_fsm = loader("lib/animation_fsm")
 local render = loader("console/render")
-local winapi = loader("console/winapi")
+local platform = loader("console/platform")
 local constants = loader("lib/constants")
 
 local M = {}
@@ -19,7 +19,7 @@ local function play_phase(phase, stats, palette, delay)
       elapsed_seconds = stats.elapsed_seconds,
       palette = palette,
     })
-    winapi.sleep(delay)
+    platform.sleep(delay)
   end
 end
 
