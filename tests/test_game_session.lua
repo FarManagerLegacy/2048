@@ -45,6 +45,28 @@ T.describe("GameSession", function()
     T.eq(s.moves_count, 3)
   end)
 
+  T.it("settles no-merge moves without blocking later moves", function()
+    local b = board.new_empty_board()
+    b[1][1] = 2
+    local s = session_mod.new({
+      state = state_for(b),
+      clock = function() return 0 end,
+      spawn_tile = function(target)
+        target[4][4] = 2
+        return { r = 4, c = 4, value = 2 }
+      end,
+    })
+    local result = s:move("right")
+    T.ok(result.changed)
+    T.eq(s.pending_score, 0)
+    T.eq(s.score, 10)
+    T.eq(s:settle_score(), 0)
+    T.eq(s.score, 10)
+    local next_result = s:move("left")
+    T.ok(next_result.changed)
+    T.not_ok(s:has_pending_score())
+  end)
+
   T.it("restart can be undone", function()
     local b = board.new_empty_board()
     b[2][2] = 8
@@ -61,6 +83,28 @@ T.describe("GameSession", function()
     T.ok(s:undo())
     T.eq(s.board, b)
     T.eq(s.palette, "ocean")
+  end)
+
+  T.it("keeps a merge score pending until the animation settles", function()
+    local b = board.new_empty_board()
+    b[1][1], b[1][2] = 2, 2
+    local s = session_mod.new({
+      state = state_for(b),
+      clock = function() return 0 end,
+      spawn_tile = function(target)
+        target[4][4] = 2
+        return { r = 4, c = 4, value = 2 }
+      end,
+    })
+
+    T.ok(s:move("left").changed)
+    T.ok(s:has_pending_score())
+    T.eq(s:snapshot().score, 10)
+    T.not_ok(s:restart())
+    T.not_ok(s:undo())
+    T.eq(s:settle_score(), 4)
+    T.eq(s.score, 14)
+    T.eq(s:settle_score(), 0)
   end)
 
   T.it("pause freezes elapsed time", function()

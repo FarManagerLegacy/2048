@@ -148,12 +148,10 @@ local function main()
               best = session.best,
               moves_count = session.moves_count,
               elapsed_seconds = session:current_elapsed(),
-              score_delta = 0,
+              score_delta = session.pending_score,
             }, session.palette
           )
           if session:has_pending_score() then
-            do_render()
-            platform.sleep(1)
             session:settle_score()
           end
           save_current()

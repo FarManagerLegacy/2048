@@ -80,6 +80,18 @@ T.describe("render: board_to_tiles", function()
 end)
 
 T.describe("render: render_frame smoke test (stubbed winapi)", function()
+  T.it("renders a pending score delta", function()
+    --luacheck: ignore 122/io
+    local captured, old_write = "", io.write
+    io.write = function(value) captured = captured .. value end
+    render.render_frame({
+      tiles = {}, score = 10, score_delta = 4, best = 20,
+      moves_count = 3, elapsed_seconds = 0,
+    })
+    io.write = old_write
+    T.ok(captured:find("10 +4", 1, true) ~= nil)
+  end)
+
   T.it("does not add ANSI blink when the status effect disables it", function()
     --luacheck: ignore 122/io
     local captured = ""

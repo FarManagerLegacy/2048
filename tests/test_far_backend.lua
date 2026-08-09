@@ -40,12 +40,4 @@ T.describe("far.backend", function()
 
 end)
 
-T.describe("far pending-score settlement", function()
-  T.it("settles score before accepting another action", function()
-    local source = assert(io.open("far/main.lua", "r")):read("*a")
-    T.ok(source:find("local function settle_score_now%(%)"))
-    T.ok(source:find("if session:has_pending_score%(%) then settle_score_now%(%) end"))
-  end)
-end)
-
 T.summary_and_exit()

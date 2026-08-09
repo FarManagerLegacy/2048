@@ -37,7 +37,6 @@ local function main()
   local active_animation
   local current_focus
   local previous_focus
-  local settling_score = false
   local slide_deadline
   local slide_render_seconds = 0
 
@@ -76,7 +75,7 @@ local function main()
 
   local function sync_clock_timer_interval()
     if clock_timer then
-      clock_timer.Interval = session.status ~= ""
+      clock_timer.Interval = session.status ~= "" and not session:has_pending_score()
         and config.STATUS_EFFECT_INTERVAL_MS
         or config.CLOCK_INTERVAL_MS
     end
@@ -90,22 +89,8 @@ local function main()
     return save.save_state(session:snapshot())
   end
 
-  local function settle_score_now()
-    if not session:has_pending_score() then return end
-    session:settle_score()
-    settling_score = false
-    active_animation = nil
-    if timer then timer.Enabled = false end
-    sync_clock_timer_interval()
-    save_current()
-    local render_started = now()
-    update_view()
-    slide_render_seconds = now() - render_started
-  end
-
   local function begin_move(direction)
-    if session:has_pending_score() then settle_score_now() end
-    if active_animation and not active_animation:is_done() then return end
+    if active_animation then return end
     local result = session:move(direction)
     if not result.changed then return end
     sync_clock_timer_interval()
@@ -131,32 +116,22 @@ local function main()
       slide_render_seconds = now() - render_started
       if active_animation.phase_idx ~= 1 then slide_deadline = nil end
       if active_animation:is_done() then
-        if session:has_pending_score() then
-          settling_score = true
-          handle.Interval = 1000
-          update_view()
-        else
-          handle.Enabled = false
-          save_current()
-        end
+        handle.Enabled = false
+        session:settle_score()
+        active_animation = nil
+        sync_clock_timer_interval()
+        save_current()
+        update_view()
       else
         set_animation_timer_interval()
       end
-    elseif settling_score then
-      session:settle_score()
-      settling_score = false
-      active_animation = nil
-      handle.Enabled = false
-      sync_clock_timer_interval()
-      save_current()
-      update_view()
     else
       handle.Enabled = false
     end
   end
 
   local function reset_to_new_game()
-    settle_score_now()
+    if active_animation then return end
     session:restart()
     sync_clock_timer_interval()
     active_animation = nil
@@ -167,7 +142,7 @@ local function main()
   end
 
   local function undo_last_move()
-    settle_score_now()
+    if active_animation then return end
     if not session:undo() then return end
     sync_clock_timer_interval()
     active_animation = nil
@@ -177,14 +152,14 @@ local function main()
   end
 
   local function cycle_palette()
-    settle_score_now()
+    if active_animation then return end
     session:cycle_palette()
     save_current()
     update_view()
   end
 
   local function toggle_pause()
-    settle_score_now()
+    if active_animation then return end
     session:set_paused(not session.paused)
     if timer then
       timer.Enabled = active_animation ~= nil and not active_animation:is_done()
@@ -220,6 +195,7 @@ local function main()
   }
 
   local function dispatch_key(key)
+    if active_animation then return false end
     if key == "up" or key == "down" or key == "left" or key == "right" then
       if session.status == "" and not session.paused then begin_move(key) return true end
     elseif key == "pause" and current_focus == item_ids.usercontrol and session.status == "" then
@@ -257,7 +233,8 @@ local function main()
     end
 
     if msg == F.DN_DRAWDLGITEM and param1 == item_ids.usercontrol then
-      local effect = status_effect.compute(session.status, session.paused, session.palette, now())
+      local visual_status = session:has_pending_score() and "" or session.status
+      local effect = status_effect.compute(visual_status, session.paused, session.palette, now())
       far_backend.draw_to_far_buffer(far_buffer, {
         tiles = current_tiles(), board_tint = effect.board_tint, fade = effect.fade,
         palette = session.palette,
@@ -266,6 +243,7 @@ local function main()
     end
 
     if msg == F.DN_BTNCLICK then
+      if active_animation then return true end
       local action = button_actions[param1]
       if not action then return nil end
 
@@ -296,10 +274,11 @@ local function main()
     end
 
     if msg == F.DN_CLOSE then
-      settle_score_now()
       if closed then return true end
       closed = true
       hdlg = nil
+      session:settle_score()
+      active_animation = nil
       save_current()
       close_timers()
       return true
