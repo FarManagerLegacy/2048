@@ -66,14 +66,9 @@ local function main()
     return tiles_mod.board_to_tiles(session.board)
   end
 
-  local function request_redraw()
-    if hdlg and not closed then
-      far.SendDlgMessage(hdlg, "DM_REDRAW", 0, nil)
-    end
-  end
-
   local function request_board_redraw()
     if hdlg and not closed then
+      -- FAR implements DM_SHOWITEM by sending DM_REDRAW for the dialog.
       far.SendDlgMessage(hdlg, "DM_SHOWITEM", item_ids.usercontrol, 1)
     end
   end
@@ -87,7 +82,7 @@ local function main()
   end
 
   local function update_view()
-    view.update(far, hdlg, item_ids, geom, session, request_redraw)
+    view.update(far, hdlg, item_ids, geom, session)
   end
 
   local function save_current()
@@ -124,7 +119,7 @@ local function main()
     if active_animation and not active_animation:is_done() then
       active_animation:advance(config.FRAMES_PER_TICK)
       local render_started = now()
-      request_redraw()
+      request_board_redraw()
       slide_render_seconds = now() - render_started
       if active_animation.phase_idx ~= 1 then slide_deadline = nil end
       if active_animation:is_done() then

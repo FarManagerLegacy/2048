@@ -13,7 +13,7 @@ function M.format_status(status)
   return ""
 end
 
-function M.update(far, hdlg, ids, geom, session, request_redraw)
+function M.update(far, hdlg, ids, geom, session)
   if not hdlg then return end
   local width = geom.stats_label_width
   local score_text = string.format("%d", session.score)
@@ -34,7 +34,6 @@ function M.update(far, hdlg, ids, geom, session, request_redraw)
   far.SendDlgMessage(hdlg, "DM_ENABLE", ids.undo_button, session:can_undo())
   far.SendDlgMessage(hdlg, "DM_SETTEXTPTR", ids.status,
     session:has_pending_score() and "" or M.format_status(session.status))
-  if request_redraw then request_redraw() end
 end
 
 function M.apply_status_colors(F, bor, status, colors)
