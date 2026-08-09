@@ -7,6 +7,12 @@ local color = loader("lib/color")
 local geometry = loader("lib/geometry")
 
 T.describe("tile_canvas", function()
+  local function halves(cell)
+    if cell[1] == "▀" then return cell[2], cell[3] end
+    if cell[1] == "▄" then return cell[3], cell[2] end
+    return cell[3], cell[3]
+  end
+
   T.it("creates and fills a board-sized cell buffer", function()
     local empty = color.empty_color("classic")
     local buf = canvas.new_buffer(empty)
@@ -58,6 +64,39 @@ T.describe("tile_canvas", function()
       math.floor(tile_bg[2] / 2),
       math.floor(tile_bg[3] / 2),
     })
+  end)
+
+  T.it("renders a half-row offset tile through both halves of its edge cells", function()
+    local empty = color.empty_color("classic")
+    local tile = color.tile_color(2, "classic")
+    local buf = canvas.rasterize({ { row = 0.125, col = 0, value = 2 } }, { palette = "classic" })
+    local x = geometry.GAP_X + 1
+    local top, bottom = halves(buf[2][x])
+    T.eq(top, empty)
+    T.eq(bottom, tile)
+    top, bottom = halves(buf[5][x])
+    T.eq(top, tile)
+    T.eq(bottom, empty)
+  end)
+
+  T.it("keeps adjacent half-row tiles continuous and retains their text colors", function()
+    local empty = color.empty_color("classic")
+    local tile = color.tile_color(2, "classic")
+    local buf = canvas.rasterize({
+      { row = 0.5, col = 0, value = 2 },
+      { row = 1.25, col = 0, value = 2 },
+    }, { palette = "classic" })
+    local x = geometry.GAP_X + 1
+    for half = 6, 17 do
+      local row = math.floor(half / 2) + 1
+      local top, bottom = halves(buf[row][x])
+      T.eq(half % 2 == 0 and top or bottom, tile)
+    end
+    local text_col = geometry.GAP_X + math.floor((geometry.CELL_W - 1) / 2) + 1
+    T.eq(buf[5][text_col][1], "2")
+    T.eq(buf[5][text_col][2], color.text_color(tile))
+    T.eq(buf[5][text_col][3], tile)
+    T.eq(buf[1][1][3], empty)
   end)
 end)
 

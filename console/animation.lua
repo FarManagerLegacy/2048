@@ -7,10 +7,12 @@ local constants = loader("lib/constants")
 
 local M = {}
 
-local function play_phase(phase, stats, palette, delay)
+local function play_phase(phase, stats, palette, delay, duration)
+  local deadline = duration and platform.now() + duration
   while not phase:is_done() do
     phase:advance(1)
     local tiles = phase:tiles()
+    local render_started = platform.now()
     render.render_frame({
       tiles = tiles,
       score = stats.score,
@@ -20,7 +22,13 @@ local function play_phase(phase, stats, palette, delay)
       elapsed_seconds = stats.elapsed_seconds,
       palette = palette,
     })
-    platform.sleep(delay)
+    local remaining = phase.total_steps - phase.step
+    if duration and remaining > 0 then
+      platform.sleep(animation_fsm.next_frame_delay(deadline, platform.now(), remaining,
+        platform.now() - render_started))
+    elseif not duration then
+      platform.sleep(delay)
+    end
   end
 end
 
@@ -35,7 +43,8 @@ function M.play_move(new_board, moves, spawned_board, spawned, stats, palette)
   }
   while not animation:is_done() do
     local phase = animation.phases[animation.phase_idx]
-    play_phase(phase, stats, palette, delays[animation.phase_idx])
+    play_phase(phase, stats, palette, delays[animation.phase_idx],
+      animation.phase_idx == 1 and constants.SLIDE_DURATION_SECONDS or nil)
     animation:advance(0)
   end
 end
@@ -45,7 +54,7 @@ function M.animate_slide(moves, score, best, moves_count, elapsed_seconds, palet
   play_phase(phase, {
     score = score, best = best, moves_count = moves_count,
     elapsed_seconds = elapsed_seconds,
-  }, palette, constants.ANIM_FRAME_DELAY)
+  }, palette, constants.ANIM_FRAME_DELAY, constants.SLIDE_DURATION_SECONDS)
 end
 
 function M.animate_merge_pop(board, moves, score, best, moves_count, elapsed_seconds, palette)

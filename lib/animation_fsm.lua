@@ -15,8 +15,10 @@
 local color = loader("lib/color")
 local util = loader("lib/util")
 local constants = loader("lib/constants")
+local geometry = loader("lib/geometry")
 
 local BOARD_SIZE = constants.BOARD_SIZE
+local ROW_STEPS_PER_CELL = geometry.CELL_H + geometry.GAP_Y
 
 local M = {}
 
@@ -24,6 +26,11 @@ local function ease_out_cubic(t)
   return 1 - (1 - t) ^ 3
 end
 M.ease_out_cubic = ease_out_cubic
+
+function M.next_frame_delay(deadline, now, remaining_steps, render_seconds)
+  if remaining_steps <= 0 then return 0 end
+  return math.max(0, (deadline - now) / remaining_steps)
+end
 
 -- ---------------------------------------------------------------------
 -- Slide phase state machine
@@ -34,10 +41,17 @@ SlideFSM.__index = SlideFSM
 
 -- moves: array of {fr, fc, tr, tc, value, merged} with 1-based board coords.
 function M.new_slide(moves)
+  local max_vertical_distance = 0
+  for _, mv in ipairs(moves) do
+    max_vertical_distance = math.max(max_vertical_distance, math.abs(mv.tr - mv.fr))
+  end
+  local vertical_steps = constants.HALF_STEP_ANIMATION and ROW_STEPS_PER_CELL * 2 or ROW_STEPS_PER_CELL
   return setmetatable({
     moves = moves,
     step = 0,
-    total_steps = constants.ANIM_FRAMES,
+    vertical = max_vertical_distance > 0,
+    vertical_steps = vertical_steps,
+    total_steps = max_vertical_distance > 0 and max_vertical_distance * vertical_steps or constants.ANIM_FRAMES,
     done = (#moves == 0),
   }, SlideFSM)
 end
@@ -55,11 +69,19 @@ end
 
 -- Returns the tile list to render for the current frame (0-based row/col).
 function SlideFSM:tiles()
-  local t = ease_out_cubic(self.step / self.total_steps)
   local out = {}
   for _, mv in ipairs(self.moves) do
-    local row = (mv.fr - 1) + ((mv.tr - 1) - (mv.fr - 1)) * t
-    local col = (mv.fc - 1) + ((mv.tc - 1) - (mv.fc - 1)) * t
+    local row, col
+    if self.vertical then
+      local distance = math.abs(mv.tr - mv.fr) * self.vertical_steps
+      local direction = mv.tr >= mv.fr and 1 or -1
+      row = (mv.fr - 1) + direction * math.min(self.step, distance) / self.vertical_steps
+      col = mv.fc - 1
+    else
+      local t = ease_out_cubic(self.step / self.total_steps)
+      row = (mv.fr - 1) + ((mv.tr - 1) - (mv.fr - 1)) * t
+      col = (mv.fc - 1) + ((mv.tc - 1) - (mv.fc - 1)) * t
+    end
     out[#out + 1] = { row = row, col = col, value = mv.value }
   end
   return out

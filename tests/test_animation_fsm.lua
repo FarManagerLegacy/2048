@@ -25,6 +25,14 @@ T.describe("animation easing", function()
   end)
 end)
 
+T.describe("adaptive frame pacing", function()
+  T.it("divides the remaining wall-clock budget after rendering", function()
+    T.near(fsm.next_frame_delay(1.0, 0.4, 3, 0.05), 0.2, 1e-6)
+    T.eq(fsm.next_frame_delay(1.0, 1.1, 3), 0)
+    T.eq(fsm.next_frame_delay(1.0, 0.4, 0), 0)
+  end)
+end)
+
 T.describe("SlideFSM", function()
   T.it("an empty move list is immediately done", function()
     local s = fsm.new_slide({})
@@ -56,6 +64,39 @@ T.describe("SlideFSM", function()
     local s = fsm.new_slide(moves)
     s:advance(1)
     T.not_ok(s:is_done())
+  end)
+
+  T.it("keeps horizontal slides on the cubic seven-frame curve", function()
+    local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 1, tc = 2, value = 2 } })
+    T.eq(s.total_steps, constants.ANIM_FRAMES)
+    s:advance(1)
+    T.near(s:tiles()[1].col, fsm.ease_out_cubic(1 / constants.ANIM_FRAMES), 1e-6)
+  end)
+
+  local function assert_vertical_half_steps(fr, tr, total_steps)
+    local s = fsm.new_slide({ { fr = fr, fc = 1, tr = tr, tc = 1, value = 2 } })
+    local start_half = (fr - 1) * 8
+    local direction = tr > fr and 1 or -1
+    T.eq(s.total_steps, total_steps)
+    for step = 1, total_steps do
+      s:advance(1)
+      T.near(s:tiles()[1].row * 8, start_half + direction * step, 1e-6)
+    end
+  end
+
+  T.it("moves vertical slides one half-row per frame", function()
+    assert_vertical_half_steps(1, 2, 8)
+    assert_vertical_half_steps(1, 3, 16)
+    assert_vertical_half_steps(4, 1, 24)
+  end)
+
+  T.it("uses full-row vertical steps when half animation is disabled", function()
+    constants.HALF_STEP_ANIMATION = false
+    local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 2, tc = 1, value = 2 } })
+    constants.HALF_STEP_ANIMATION = true
+    T.eq(s.total_steps, 4)
+    s:advance(1)
+    T.near(s:tiles()[1].row, 0.25, 1e-6)
   end)
 end)
 

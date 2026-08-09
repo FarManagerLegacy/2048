@@ -38,9 +38,18 @@ local function main()
   local current_focus
   local previous_focus
   local settling_score = false
+  local slide_deadline
+  local slide_render_seconds = 0
 
   local function set_animation_timer_interval()
     if not timer or not active_animation or active_animation:is_done() then return end
+    local phase = active_animation.phases[active_animation.phase_idx]
+    if active_animation.phase_idx == 1 and slide_deadline then
+      local remaining = phase.total_steps - phase.step
+      local delay = animation_fsm.next_frame_delay(slide_deadline, now(), remaining, slide_render_seconds)
+      timer.Interval = math.max(1, math.floor(delay * 1000 + 0.5))
+      return
+    end
     local delay = config.PHASE_DELAYS[active_animation.phase_idx]
       or constants.ANIM_FRAME_DELAY
     timer.Interval = math.floor(delay * 1000 + 0.5)
@@ -89,7 +98,9 @@ local function main()
     if timer then timer.Enabled = false end
     sync_clock_timer_interval()
     save_current()
+    local render_started = now()
     update_view()
+    slide_render_seconds = now() - render_started
   end
 
   local function begin_move(direction)
@@ -102,19 +113,23 @@ local function main()
       result.new_board, result.moves, result.spawned_board, result.spawned,
       session.palette
     )
+    slide_deadline = now() + constants.SLIDE_DURATION_SECONDS
+    update_view()
     set_animation_timer_interval()
     if timer then timer.Enabled = true end
-    update_view()
   end
 
   local function on_timer(handle)
-    if closed or session.paused then
+    if closed then
       handle.Enabled = false
       return
     end
     if active_animation and not active_animation:is_done() then
       active_animation:advance(config.FRAMES_PER_TICK)
+      local render_started = now()
       request_redraw()
+      slide_render_seconds = now() - render_started
+      if active_animation.phase_idx ~= 1 then slide_deadline = nil end
       if active_animation:is_done() then
         if session:has_pending_score() then
           settling_score = true
@@ -172,8 +187,7 @@ local function main()
     settle_score_now()
     session:set_paused(not session.paused)
     if timer then
-      timer.Enabled = not session.paused and active_animation ~= nil
-        and not active_animation:is_done()
+      timer.Enabled = active_animation ~= nil and not active_animation:is_done()
     end
     save_current()
     update_view()

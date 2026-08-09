@@ -22,7 +22,6 @@ end
 
 M.CELL_W, M.CELL_H = M.compute_cell_dimensions(M.UNIT, M.CHAR_ASPECT)
 M.GAP_X, M.GAP_Y = M.compute_gaps(M.UNIT)
-M.HALF_BLOCKS = M.UNIT % 2 == 0
 
 M.BOARD_W = constants.BOARD_SIZE * M.CELL_W + (constants.BOARD_SIZE + 1) * M.GAP_X
 M.BOARD_H = constants.BOARD_SIZE * M.CELL_H + (constants.BOARD_SIZE + 1) * M.GAP_Y
