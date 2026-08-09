@@ -80,29 +80,30 @@ T.describe("render: board_to_tiles", function()
 end)
 
 T.describe("render: render_frame smoke test (stubbed winapi)", function()
-  T.it("does not error for a simple board", function()
-    local b = board.new_empty_board()
-    b[1][1] = 2
-    local ok, err = pcall(function()
-      render.render_frame({
-        tiles = tiles_mod.board_to_tiles(b), score = 4, best = 4,
-        moves_count = 1, elapsed_seconds = 5, status_text = "",
-      })
-    end)
-    T.ok(ok, err)
+  T.it("does not add ANSI blink when the status effect disables it", function()
+    --luacheck: ignore 122/io
+    local captured = ""
+    local old_write = io.write
+    io.write = function(value) captured = captured .. value end
+    render.render_frame({
+      tiles = {}, score = 0, best = 0, moves_count = 0,
+      elapsed_seconds = 0, status_text = "PAUSED", blink = false,
+    })
+    io.write = old_write
+    T.not_ok(captured:find("\x1b[5m", 1, true))
   end)
 
-  T.it("does not error with a status message and paused flag set", function()
-    local b = board.new_empty_board()
-    b[1][1] = 2
-    local ok, err = pcall(function()
-      render.render_frame({
-        tiles = tiles_mod.board_to_tiles(b), score = 4, best = 4,
-        moves_count = 1, elapsed_seconds = 5, status_text = "GAME OVER",
-        status_color = { 255, 90, 90 }, paused = true, blink_on = true,
-      })
-    end)
-    T.ok(ok, err)
+  T.it("applies fade to the board background", function()
+    --luacheck: ignore 122/io
+    local captured = ""
+    local old_write = io.write
+    io.write = function(value) captured = captured .. value end
+    render.render_frame({
+      tiles = {}, score = 0, best = 0, moves_count = 0,
+      elapsed_seconds = 0, fade = 0.55,
+    })
+    io.write = old_write
+    T.ok(captured:find("\x1b[48;2;92;86;80m", 1, true) ~= nil)
   end)
 
   T.it("keeps the board background behind sparkles", function()

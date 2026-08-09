@@ -11,18 +11,9 @@ local screens = loader("console/screens")
 local save = loader("lib/save")
 local platform = loader("console/platform")
 local config = loader("console/config")
+local status_effect = loader("lib/status_effect")
 
 math.randomseed(os.time())
-
-local function notify_finished_save(status)
-  local label = (status == "won") and "reached 2048 and was won" or "ended in Game Over"
-  io.write("\x1b[2J\x1b[H")
-  io.write(string.format(
-    "\x1b[1mThe saved game already %s.\x1b[0m\n" ..
-    "Starting a new game. Press any key to continue...\n", label))
-  io.flush()
-  platform.read_byte()
-end
 
 local function main()
   local prepared, prepare_err = pcall(platform.prepare_console)
@@ -42,7 +33,6 @@ local function main()
     if saved and board_mod.compute_status(saved.board) == "" then
       session = game_session.new({ state = saved, clock = platform.now })
     elseif saved then
-      notify_finished_save(board_mod.compute_status(saved.board))
       save.clear_save()
     end
     session = session or game_session.new({ clock = platform.now })
@@ -52,6 +42,8 @@ local function main()
     end
 
     local function do_render()
+      local effect = status_effect.compute(session.status, session.paused, session.palette,
+        session:current_elapsed())
       render.render_frame({
         tiles = tiles_mod.board_to_tiles(session.board),
         score = session.score,
@@ -61,6 +53,9 @@ local function main()
         status_text = session.status,
         palette = session.palette,
         paused = session.paused,
+        board_tint = effect.board_tint,
+        fade = effect.fade,
+        blink = effect.blink,
       })
     end
 

@@ -16,12 +16,16 @@ local tiles_mod = loader("lib/tiles")
 local save = loader("lib/save")
 local layout = loader("far/dialog_layout")
 local view = loader("far/dialog_view")
-local DIRECTION_KEYS = { Left = "left", Up = "up", Right = "right", Down = "down" }
+local status_effect = loader("lib/status_effect")
 
 local function main()
+  local function now()
+    return far.FarClock() / 1000000
+  end
+
   local saved = save.load_state()
   local initial_state = saved and board_mod.compute_status(saved.board) == "" and saved or nil
-  local session = game_session.new({ state = initial_state, clock = os.clock })
+  local session = game_session.new({ state = initial_state, clock = now })
   local geom = layout.calculate()
   local far_buffer = far_backend.create_buffer()
   local items, item_ids = layout.build_items(F, geom, far_buffer)
@@ -54,6 +58,20 @@ local function main()
     end
   end
 
+  local function request_board_redraw()
+    if hdlg and not closed then
+      far.SendDlgMessage(hdlg, "DM_SHOWITEM", item_ids.usercontrol, 1)
+    end
+  end
+
+  local function sync_clock_timer_interval()
+    if clock_timer then
+      clock_timer.Interval = session.status ~= ""
+        and config.STATUS_EFFECT_INTERVAL_MS
+        or config.CLOCK_INTERVAL_MS
+    end
+  end
+
   local function update_view()
     view.update(far, hdlg, item_ids, geom, session, request_redraw)
   end
@@ -66,6 +84,7 @@ local function main()
     if active_animation and not active_animation:is_done() then return end
     local result = session:move(direction)
     if not result.changed then return end
+    sync_clock_timer_interval()
     active_animation = animation_fsm.new_move_animation(
       result.new_board, result.moves, result.spawned_board, result.spawned,
       session.palette
@@ -96,6 +115,7 @@ local function main()
 
   local function reset_to_new_game()
     session:restart()
+    sync_clock_timer_interval()
     active_animation = nil
     if timer then timer.Enabled = false end
     save.clear_save()
@@ -105,6 +125,7 @@ local function main()
 
   local function undo_last_move()
     if not session:undo() then return end
+    sync_clock_timer_interval()
     active_animation = nil
     if timer then timer.Enabled = false end
     save_current()
@@ -152,13 +173,38 @@ local function main()
     [item_ids.undo_button] = undo_last_move,
     [item_ids.pause_button] = toggle_pause,
   }
+
+  local function dispatch_key(key)
+    if key == "up" or key == "down" or key == "left" or key == "right" then
+      if session.status == "" and not session.paused then begin_move(key) return true end
+    elseif key == "pause" and current_focus == item_ids.usercontrol and session.status == "" then
+      toggle_pause()
+      return true
+    end
+    return false
+  end
+
+  local function normalize_key(name)
+    name = tostring(name or ""):lower()
+    return ({
+      left = "left", up = "up", right = "right", down = "down",
+      space = "pause",
+    })[name]
+  end
+
   local function dlg_proc(dialog, msg, param1, param2)
     if msg == F.DN_INITDIALOG then
       hdlg = dialog
       timer = far.Timer(config.TIMER_INTERVAL_MS, on_timer)
       timer.Enabled = false
       clock_timer = far.Timer(config.CLOCK_INTERVAL_MS, function()
-        if not closed then update_view() end
+        if not closed then
+          if session.status == "won" or session.status == "game_over" then
+            request_board_redraw()
+          else
+            update_view()
+          end
+        end
       end)
       clock_timer.Enabled = true
       update_view()
@@ -166,10 +212,10 @@ local function main()
     end
 
     if msg == F.DN_DRAWDLGITEM and param1 == item_ids.usercontrol then
-      local fade = session.paused and 0.55 or 0
-      if session.status == "game_over" then fade = math.max(fade, 0.45) end
+      local effect = status_effect.compute(session.status, session.paused, session.palette, now())
       far_backend.draw_to_far_buffer(far_buffer, {
-        tiles = current_tiles(), fade = fade, palette = session.palette,
+        tiles = current_tiles(), board_tint = effect.board_tint, fade = effect.fade,
+        palette = session.palette,
       })
       return true
     end
@@ -196,21 +242,11 @@ local function main()
     end
 
     if not F.DN_KEY and msg == F.DN_CONTROLINPUT and param2.KeyDown ~= false then
-      local key = DIRECTION_KEYS[far.InputRecordToName(param2)]
-      if (key == "up" or key == "down" or key == "left" or key == "right")
-          and session.status == "" and not session.paused then
-        begin_move(key)
-        return true
-      end
+      return dispatch_key(normalize_key(far.InputRecordToName(param2))) or nil
     end
 
     if F.DN_KEY and msg == F.DN_KEY then
-      local key = DIRECTION_KEYS[far.KeyToName(param2)]
-      if (key == "up" or key == "down" or key == "left" or key == "right")
-          and session.status == "" and not session.paused then
-        begin_move(key)
-        return true
-      end
+      return dispatch_key(normalize_key(far.KeyToName(param2))) or nil
     end
 
     if msg == F.DN_CLOSE then

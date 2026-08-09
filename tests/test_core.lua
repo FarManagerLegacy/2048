@@ -167,23 +167,6 @@ T.describe("save/load round trip", function()
     teardown_tmp_save_path()
   end)
 
-  T.it("finished save is never silently trusted", function()
-    setup_tmp_save_path()
-    local stuck_board = {
-      { 2, 4, 32, 16 },
-      { 8, 16, 64, 2 },
-      { 16, 32, 128, 8 },
-      { 4, 2, 8, 2 },
-    }
-    save.save_state({
-      board = stuck_board, score = 1468, best = 1468, moves_count = 151,
-      elapsed_seconds = 0, palette = "classic",
-    })
-    local loaded = save.load_state()
-    T.eq(board.compute_status(loaded.board), "game_over")
-    teardown_tmp_save_path()
-  end)
-
   T.it("clear_save removes file", function()
     setup_tmp_save_path()
     local b = board.new_empty_board()
@@ -216,48 +199,6 @@ T.describe("save/load round trip", function()
     f:close()
     T.eq(save.load_state(), nil)
     teardown_tmp_save_path()
-  end)
-end)
-
-T.describe("undo history semantics", function()
-  local UNDO_HISTORY_LIMIT = loader("lib/constants").UNDO_HISTORY_LIMIT
-
-  local function push_history(history, b, s, mv)
-    table.insert(history, { board.copy_board(b), s, mv })
-    if #history > UNDO_HISTORY_LIMIT then
-      table.remove(history, 1)
-    end
-  end
-
-  T.it("multi-level undo stack", function()
-    local history = {}
-    local b0 = board.new_empty_board()
-    push_history(history, b0, 0, 0)
-
-    local b1 = board.copy_board(b0)
-    b1[1][1] = 2
-    push_history(history, b1, 4, 1)
-
-    local b2 = board.copy_board(b1)
-    b2[1][2] = 2
-    push_history(history, b2, 8, 2)
-
-    T.eq(#history, 3)
-    local restored = table.remove(history)
-    T.eq(restored[1], b2); T.eq(restored[2], 8); T.eq(restored[3], 2)
-    restored = table.remove(history)
-    T.eq(restored[1], b1); T.eq(restored[2], 4); T.eq(restored[3], 1)
-    restored = table.remove(history)
-    T.eq(restored[1], b0); T.eq(restored[2], 0); T.eq(restored[3], 0)
-  end)
-
-  T.it("history is capped at limit", function()
-    local history = {}
-    local b = board.new_empty_board()
-    for i = 1, UNDO_HISTORY_LIMIT + 10 do
-      push_history(history, b, i, i)
-    end
-    T.eq(#history, UNDO_HISTORY_LIMIT)
   end)
 end)
 

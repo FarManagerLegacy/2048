@@ -4,7 +4,7 @@ local board_mod = loader("lib/board")
 local M = {}
 
 local function save_dir()
-  local profile = win and win.GetEnv("FARLOCALPROFILE") or ""
+  local profile = win and win.GetEnv("FARLOCALPROFILE") or os.getenv("FARLOCALPROFILE")
   if profile and profile ~= "" then
     return profile
   end

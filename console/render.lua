@@ -90,8 +90,8 @@ function M.render_frame(opts)
   local status_text = opts.status_text or ""
   local status_color = opts.status_color
   local board_tint = opts.board_tint
-  local blink_on = opts.blink_on
-  if blink_on == nil then blink_on = true end
+  local fade = opts.fade or 0
+  local blink = opts.blink or false
   local sparkles = opts.sparkles
   local paused = opts.paused or false
   local palette = opts.palette
@@ -99,6 +99,7 @@ function M.render_frame(opts)
 
   local buf = canvas.rasterize(tiles, {
     board_tint = board_tint,
+    fade = fade,
     palette = palette,
   })
 
@@ -150,14 +151,10 @@ function M.render_frame(opts)
   }
 
   if status_text ~= "" then
-    if blink_on then
-      local sc = status_color or { 255, 80, 80 }
-      footer_lines[#footer_lines + 1] = string.format(
-        "\x1b[1m\x1b[5m\x1b[38;2;%d;%d;%dm%s\x1b[0m\x1b[K",
-        sc[1], sc[2], sc[3], center_text(status_text, BOARD_W))
-    else
-      footer_lines[#footer_lines + 1] = "\x1b[K"
-    end
+    local sc = status_color or { 255, 80, 80 }
+    footer_lines[#footer_lines + 1] = string.format(
+      "\x1b[1m%s\x1b[38;2;%d;%d;%dm%s\x1b[0m\x1b[K",
+      blink and "\x1b[5m" or "", sc[1], sc[2], sc[3], center_text(status_text, BOARD_W))
   else
     footer_lines[#footer_lines + 1] = "\x1b[K"
   end
