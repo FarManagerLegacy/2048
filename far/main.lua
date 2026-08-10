@@ -17,6 +17,7 @@ local save = loader("lib/save")
 local layout = loader("far/dialog_layout")
 local view = loader("far/dialog_view")
 local status_effect = loader("lib/status_effect")
+local arrow_keys = { up = true, down = true, left = true, right = true }
 
 local function main()
   local function now()
@@ -39,6 +40,7 @@ local function main()
   local previous_focus
   local slide_deadline
   local slide_render_seconds = 0
+  local pending_key
 
   local function set_animation_timer_interval()
     if not timer or not active_animation or active_animation:is_done() then return end
@@ -92,7 +94,7 @@ local function main()
   local function begin_move(direction)
     if active_animation then return end
     local result = session:move(direction)
-    if not result.changed then return end
+    if not result.changed then return false end
     sync_clock_timer_interval()
     active_animation = animation_fsm.new_move_animation(
       result.new_board, result.moves, result.spawned_board, result.spawned,
@@ -102,6 +104,13 @@ local function main()
     update_view()
     set_animation_timer_interval()
     if timer then timer.Enabled = true end
+    return true
+  end
+
+  local function start_pending_move()
+    local key = pending_key
+    pending_key = nil
+    if key and session.status == "" and not session.paused then begin_move(key) end
   end
 
   local function on_timer(handle)
@@ -122,6 +131,7 @@ local function main()
         sync_clock_timer_interval()
         save_current()
         update_view()
+        start_pending_move()
       else
         set_animation_timer_interval()
       end
@@ -132,6 +142,7 @@ local function main()
 
   local function reset_to_new_game()
     if active_animation then return end
+    pending_key = nil
     session:restart()
     sync_clock_timer_interval()
     active_animation = nil
@@ -143,6 +154,7 @@ local function main()
 
   local function undo_last_move()
     if active_animation then return end
+    pending_key = nil
     if not session:undo() then return end
     sync_clock_timer_interval()
     active_animation = nil
@@ -195,9 +207,18 @@ local function main()
   }
 
   local function dispatch_key(key)
-    if active_animation then return false end
-    if key == "up" or key == "down" or key == "left" or key == "right" then
-      if session.status == "" and not session.paused then begin_move(key) return true end
+    local is_arrow = arrow_keys[key]
+    if active_animation then
+      if is_arrow then
+        if not pending_key then pending_key = key end
+        return true
+      end
+      return false
+    end
+    if is_arrow then
+      if session.status == "" and not session.paused then
+        if begin_move(key) then return true end
+      end
     elseif key == "pause" and current_focus == item_ids.usercontrol and session.status == "" then
       toggle_pause()
       return true
@@ -277,6 +298,7 @@ local function main()
       if closed then return true end
       closed = true
       hdlg = nil
+      pending_key = nil
       session:settle_score()
       active_animation = nil
       save_current()
