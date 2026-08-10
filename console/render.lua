@@ -20,7 +20,7 @@ local function render_buffer(buf)
     local row = buf[y]
     local parts = {}
     local run_chars = {}
-    local cur_fg, cur_bg = "__unset__", "__unset__"
+    local cur_fg, cur_bg, cur_bold = "__unset__", "__unset__", "__unset__"
 
     local function flush_run()
       if #run_chars > 0 then
@@ -30,10 +30,11 @@ local function render_buffer(buf)
     end
 
     for x = 1, BOARD_W do
-      local ch, fg, bg = row[x][1], row[x][2], row[x][3]
+      local ch, fg, bg, bold = row[x][1], row[x][2], row[x][3], row[x][4]
       local fg_key = fg and table.concat(fg, ",") or "nil"
       local bg_key = bg and table.concat(bg, ",") or "nil"
-      if fg_key ~= cur_fg or bg_key ~= cur_bg then
+      local bold_key = bold and "1" or "0"
+      if fg_key ~= cur_fg or bg_key ~= cur_bg or bold_key ~= cur_bold then
         flush_run()
         local code = "\x1b[0m"
         if bg then
@@ -42,8 +43,9 @@ local function render_buffer(buf)
         if fg then
           code = code .. string.format("\x1b[38;2;%d;%d;%dm", fg[1], fg[2], fg[3])
         end
+        if bold then code = code .. "\x1b[1m" end
         parts[#parts + 1] = code
-        cur_fg, cur_bg = fg_key, bg_key
+        cur_fg, cur_bg, cur_bold = fg_key, bg_key, bold_key
       end
       run_chars[#run_chars + 1] = ch
     end

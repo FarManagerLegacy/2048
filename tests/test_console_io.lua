@@ -92,6 +92,18 @@ T.describe("render: render_frame smoke test (stubbed winapi)", function()
     T.ok(captured:find("10 +4", 1, true) ~= nil)
   end)
 
+  T.it("renders tile digits in bold", function()
+    --luacheck: ignore 122/io
+    local captured, old_write = "", io.write
+    io.write = function(value) captured = captured .. value end
+    render.render_frame({
+      tiles = { { row = 0, col = 0, value = 2 } },
+      score = 0, best = 0, moves_count = 0, elapsed_seconds = 0,
+    })
+    io.write = old_write
+    T.ok(captured:find("\x1b[1m2", 1, true) ~= nil)
+  end)
+
   T.it("does not add ANSI blink when the status effect disables it", function()
     --luacheck: ignore 122/io
     local captured = ""

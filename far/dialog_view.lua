@@ -19,7 +19,7 @@ function M.update(hdlg, ids, geom, session)
   local width = geom.stats_label_width
   local score_text = string.format("%d", session.score)
   if session:has_pending_score() then
-    score_text = score_text .. string.format(" +%d", session.pending_score)
+    score_text = score_text .. string.format(" &+%d", session.pending_score)
   end
   hdlg:SetText(ids.score,
     make_stat_label("Score: ", width) .. score_text)

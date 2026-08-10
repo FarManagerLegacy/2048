@@ -98,7 +98,7 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
   for i = 1, #text do
     local col = text_col + (i - 1)
     if col >= 0 and col < BOARD_W then
-      buf[text_row + 1][col + 1] = { text:sub(i, i), fg, bg }
+      buf[text_row + 1][col + 1] = { text:sub(i, i), fg, bg, true }
     end
   end
 end

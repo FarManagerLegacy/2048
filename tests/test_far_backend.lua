@@ -5,6 +5,7 @@ local T = loader("tests/test_runner")
 
 local created_width, created_height
 far = { --luacheck: allow_defined
+  Flags = { FCF_FG_BOLD = 8 },
   CreateUserControl = function(width, height)
     created_width, created_height = width, height
     return {}
@@ -29,9 +30,12 @@ T.describe("far.backend", function()
     })
     T.ok(buffer[1] ~= nil)
     T.ok(buffer[1].Attributes ~= nil)
-    local tile_idx = geometry.GAP_Y * geometry.BOARD_W + geometry.GAP_X + 1
+    local text_row = geometry.GAP_Y + math.floor(geometry.CELL_H / 2)
+    local text_col = geometry.GAP_X + math.floor((geometry.CELL_W - 1) / 2)
+    local tile_idx = text_row * geometry.BOARD_W + text_col + 1
     T.ok(buffer[tile_idx].Attributes.BackgroundColor
       ~= buffer[1].Attributes.BackgroundColor)
+    T.eq(buffer[tile_idx].Attributes.Flags, far.Flags.FCF_FG_BOLD)
   end)
 
   T.it("converts shared RGB colors to Windows COLORREF", function()

@@ -8,7 +8,7 @@
 -- Requires the global `far` and `F` tables that LuaMacro injects into
 -- every macro's environment -- this file only runs inside FAR, not under
 -- plain luajit.exe.
--- luacheck: globals far F
+-- luacheck: globals far
 
 local geometry = loader("lib/geometry")
 local color = loader("lib/color")
@@ -40,9 +40,10 @@ local function rgb_to_farcolor(c)
 end
 M._rgb_to_farcolor = rgb_to_farcolor
 
-local function far_color_attributes(fg, bg)
+local F = far.Flags
+local function far_color_attributes(fg, bg, bold)
   return {
-    Flags = 0,
+    Flags = bold and F.FCF_FG_BOLD or 0,
     ForegroundColor = rgb_to_farcolor(fg),
     BackgroundColor = rgb_to_farcolor(bg),
   }
@@ -72,11 +73,11 @@ function M.draw_to_far_buffer(far_buffer, opts)
 
   for y = 1, BOARD_H do
     for x = 1, BOARD_W do
-      local ch, fg, bg = buf[y][x][1], buf[y][x][2], buf[y][x][3]
+      local ch, fg, bg, bold = buf[y][x][1], buf[y][x][2], buf[y][x][3], buf[y][x][4]
       local idx = (y - 1) * BOARD_W + x
       far_buffer[idx] = {
         Char = ch,
-        Attributes = far_color_attributes(fg or color.text_color(bg), bg),
+        Attributes = far_color_attributes(fg or color.text_color(bg), bg, bold),
       }
     end
   end

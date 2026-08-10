@@ -33,6 +33,7 @@ T.describe("tile_canvas", function()
       + math.floor((geometry.CELL_W - 1) / 2) + 1
     T.eq(buf[text_row][text_col][1], "2")
     T.eq(buf[text_row][text_col][3], color.tile_color(2, "classic"))
+    T.ok(buf[text_row][text_col][4], "tile digits should be bold")
   end)
 
   T.it("rasterizes empty cells and tiles with palette colors", function()
