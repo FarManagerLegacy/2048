@@ -127,7 +127,7 @@ T.describe("render: render_frame smoke test (stubbed winapi)", function()
       elapsed_seconds = 0, fade = 0.55,
     })
     io.write = old_write
-    T.ok(captured:find("\x1b[48;2;92;86;80m", 1, true) ~= nil)
+    T.ok(captured:find("\x1b[48;2;84;77;72m", 1, true) ~= nil)
   end)
 
   T.it("keeps the board background behind sparkles", function()

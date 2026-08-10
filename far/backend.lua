@@ -11,7 +11,6 @@
 -- luacheck: globals far
 
 local geometry = loader("lib/geometry")
-local color = loader("lib/color")
 local canvas = loader("lib/tile_canvas")
 
 local M = {}
@@ -77,7 +76,7 @@ function M.draw_to_far_buffer(far_buffer, opts)
       local idx = (y - 1) * BOARD_W + x
       far_buffer[idx] = {
         Char = ch,
-        Attributes = far_color_attributes(fg or color.text_color(bg), bg, bold),
+        Attributes = far_color_attributes(fg or bg, bg, bold),
       }
     end
   end

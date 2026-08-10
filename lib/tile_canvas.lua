@@ -75,7 +75,7 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
   if alpha < 1.0 then
     bg = util.blend(empty_bg, bg, alpha)
   end
-  local fg = tile.fg or color.text_color(bg)
+  local fg = tile.fg or color.tile_text_color(tile.value, palette)
   if fade and fade > 0 then
     bg = util.blend(bg, { 0, 0, 0 }, fade)
     fg = util.blend(fg, { 0, 0, 0 }, fade)
@@ -115,14 +115,15 @@ function M.rasterize(tiles, opts)
   opts = opts or {}
   local palette = opts.palette
   local fade = opts.fade or 0
-  local board_bg = opts.board_tint or color.empty_color(palette)
-  local empty_bg = board_bg
+  local board_bg = opts.board_tint or color.board_bg_color(palette)
+  local empty_bg = color.empty_color(palette)
   if fade > 0 then
-    empty_bg = util.blend(board_bg, BLACK, fade)
+    board_bg = util.blend(board_bg, BLACK, fade)
+    empty_bg = util.blend(empty_bg, BLACK, fade)
   end
 
-  local buf = M.new_buffer(empty_bg)
-  M.fill_empty_cells(buf, empty_bg)
+  local buf = M.new_buffer(board_bg)
+  if constants.DRAW_EMPTY_TILES then M.fill_empty_cells(buf, empty_bg) end
   for _, tile in ipairs(tiles or {}) do
     M.draw_tile(buf, tile, empty_bg, palette, fade)
   end

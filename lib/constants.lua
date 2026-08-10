@@ -17,6 +17,8 @@ M.SLIDE_DURATION_SECONDS = 0.250
 M.ANIM_EASE_POWER = 3
 -- Master switch for half-block static rendering and vertical animation.
 M.USE_HALF_BLOCKS = true
+-- Master switch for drawing empty tile backgrounds.
+M.DRAW_EMPTY_TILES = true
 M.MERGE_POP_FRAMES = 6
 M.MERGE_POP_DELAY = 0.02
 M.SPAWN_FADE_FRAMES = 4

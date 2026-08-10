@@ -3,23 +3,25 @@ local util = loader("lib/util")
 
 local M = {}
 
+local def_tiles = {
+  [2] = { 238, 228, 218 },
+  [4] = { 237, 224, 200 },
+  [8] = { 242, 177, 121 },
+  [16] = { 245, 149, 99 },
+  [32] = { 246, 124, 95 },
+  [64] = { 246, 94, 59 },
+  [128] = { 237, 207, 114 },
+  [256] = { 237, 204, 97 },
+  [512] = { 237, 200, 80 },
+  [1024] = { 237, 197, 63 },
+  [2048] = { 237, 194, 46 },
+}
+
 M.PALETTES = {
   classic = {
     board_bg = { 187, 173, 160 },
     empty = { 205, 193, 180 },
-    tiles = {
-      [2] = { 238, 228, 218 },
-      [4] = { 237, 224, 200 },
-      [8] = { 242, 177, 121 },
-      [16] = { 245, 149, 99 },
-      [32] = { 246, 124, 95 },
-      [64] = { 246, 94, 59 },
-      [128] = { 237, 207, 114 },
-      [256] = { 237, 204, 97 },
-      [512] = { 237, 200, 80 },
-      [1024] = { 237, 197, 63 },
-      [2048] = { 237, 194, 46 },
-    },
+    tiles = def_tiles,
   },
   gradient = {
     board_bg = { 48, 52, 63 },
@@ -37,9 +39,88 @@ M.PALETTES = {
       [4] = { 178, 235, 242 },
     },
   },
+  original = {
+    board_bg = { 152, 136, 118 },
+    empty = { 186, 172, 154 },
+    text_dark = { 117, 100, 82 },
+    text_light = { 255, 255, 255 },
+    tiles = def_tiles,
+  },
+  ["original-dark"] = {
+    board_bg = { 80, 76, 68 },
+    empty = { 107, 102, 91 },
+    tiles = def_tiles,
+  },
+  amber = {
+    board_bg = { 247, 206, 139 },
+    empty = { 251, 216, 155 },
+    text_dark = { 213, 92, 38 },
+    text_light = { 255, 255, 255 },
+    tiles = {
+      [2] = { 244, 186, 97 },
+      [4] = { 242, 171, 71 },
+      [8] = { 241, 157, 56 },
+      [16] = { 236, 146, 53 },
+    },
+  },
+  rose = {
+    board_bg = { 239, 189, 207 },
+    empty = { 244, 201, 215 },
+    text_dark = { 159, 39, 87 },
+    text_light = { 255, 255, 255 },
+    tiles = {
+      [2] = { 230, 148, 176 },
+      [4] = { 223, 107, 146 },
+      [8] = { 218, 79, 122 },
+      [16] = { 214, 56, 100 },
+      [32] = { 198, 51, 97 },
+    },
+  },
+  sky = {
+    board_bg = { 194, 221, 248 },
+    empty = { 203, 227, 250 },
+    text_dark = { 2, 136, 209 },
+    text_light = { 255, 255, 255 },
+    tiles = {
+      [2] = { 171, 218, 247 },
+      [4] = { 148, 210, 246 },
+      [8] = { 112, 192, 242 },
+      [16] = { 90, 179, 240 },
+      [32] = { 75, 166, 238 },
+      [64] = { 69, 153, 223 },
+      [128] = { 59, 134, 203 },
+    },
+  },
+  mint = {
+    board_bg = { 206, 229, 203 },
+    empty = { 225, 239, 222 },
+    text_dark = { 46, 125, 50 },
+    text_light = { 255, 255, 255 },
+    tiles = {
+      [2] = { 175, 213, 171 },
+      [4] = { 145, 197, 138 },
+      [8] = { 123, 185, 114 },
+      [32] = { 93, 158, 82 },
+    },
+  },
+  ["mint-dark"] = {
+    board_bg = { 21, 23, 20 },
+    empty = { 44, 46, 42 },
+    text_dark = { 68, 122, 58 },
+    text_light = { 255, 255, 255 },
+    tiles = {
+      [2] = { 175, 213, 171 },
+      [4] = { 145, 197, 138 },
+      [8] = { 123, 185, 114 },
+      [16] = { 103, 173, 91 },
+    },
+  }
 }
 
-M._PALETTE_NAMES = { "classic", "gradient", "ocean" }
+M._PALETTE_NAMES = {
+  "classic", "original", "original-dark", "mint", "mint-dark",
+  "gradient", "ocean", "amber", "rose", "sky"
+}
 
 function M.cycle_palette(current)
   local names = M._PALETTE_NAMES
@@ -90,6 +171,9 @@ local function extrapolate_color(value, palette)
   return { util.trunc(r * 255), util.trunc(g * 255), util.trunc(b * 255) }
 end
 
+-- Palettes may define only part of the tile range. Exact colors win; values
+-- below the smallest defined tile reuse that color, while larger values are
+-- extrapolated from the largest defined tile in HSV.
 function M.tile_color(value, palette_name)
   local palette = resolve_palette(palette_name)
   local tiles = palette.tiles
@@ -107,13 +191,12 @@ function M.empty_color(palette_name)
   return resolve_palette(palette_name).empty
 end
 
-function M.text_color(bg)
-  local r, g, b = bg[1], bg[2], bg[3]
-  local luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
-  if luminance > 150 then
-    return { 60, 56, 50 }
+function M.tile_text_color(value, palette_name)
+  local palette = resolve_palette(palette_name)
+  if value == 2 or value == 4 then
+    return palette.text_dark or { 119, 110, 101 }
   end
-  return { 249, 246, 242 }
+  return palette.text_light or { 249, 246, 242 }
 end
 
 return M

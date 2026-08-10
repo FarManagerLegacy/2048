@@ -122,13 +122,32 @@ T.describe("GameSession", function()
     T.near(s:current_elapsed(), 10)
   end)
 
-  T.it("palette is session-local", function()
-    local b = board.new_empty_board()
-    local s = session_mod.new({ state = state_for(b), clock = function() return 0 end })
+  T.it("restores the saved palette in its snapshot", function()
+    local s = session_mod.new({
+      state = state_for(board.new_empty_board()),
+      clock = function() return 0 end,
+    })
     T.eq(s.palette, "ocean")
-    T.eq(s:cycle_palette(), "classic")
-    T.eq(s:snapshot().palette, "classic")
+    T.eq(s:snapshot().palette, "ocean")
   end)
+
+  T.it("keeps palette changes isolated between sessions", function()
+    local first = session_mod.new({
+      state = state_for(board.new_empty_board()),
+      clock = function() return 0 end,
+    })
+    local second_state = state_for(board.new_empty_board())
+    second_state.palette = "classic"
+    local second = session_mod.new({ state = second_state, clock = function() return 0 end })
+
+    local first_palette = first:cycle_palette()
+    T.not_ok(first_palette == "ocean")
+    T.eq(first.palette, first_palette)
+    T.eq(first:snapshot().palette, first_palette)
+    T.eq(second.palette, "classic")
+    T.eq(second:snapshot().palette, "classic")
+  end)
+
 end)
 
 T.summary_and_exit()

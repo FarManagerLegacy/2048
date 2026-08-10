@@ -150,7 +150,7 @@ function MergePopFSM:tiles()
     local new_bg = color.tile_color(new_value, self.palette)
     local bg = util.blend(old_bg, new_bg, t)
     bg = util.lighten(bg, bump)
-    local normal_fg = color.text_color(bg)
+    local normal_fg = color.tile_text_color(new_value, self.palette)
     local fg = util.blend(FLASH_COLOR, normal_fg, t)
     out[#out + 1] = { row = r - 1, col = c - 1, value = new_value, bg = bg, fg = fg }
   end
