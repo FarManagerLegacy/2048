@@ -20,8 +20,11 @@ local status_effect = loader("lib/status_effect")
 local arrow_keys = { up = true, down = true, left = true, right = true }
 
 local function main()
-  local function now()
-    return far.FarClock() / 1000000
+  local now
+  if far.FarClock then
+    now = function() return far.FarClock() / 1000000 end
+  else
+    now = win.Clock --luacheck: read_globals win.Clock
   end
 
   local saved = save.load_state()
@@ -291,7 +294,7 @@ local function main()
     end
 
     if F.DN_KEY and msg == F.DN_KEY then
-      return dispatch_key(normalize_key(far.KeyToName(param2))) or nil
+      return dispatch_key(normalize_key(far.KeyToName(param2))) or nil --luacheck: read_globals far.KeyToName
     end
 
     if msg == F.DN_CLOSE then
