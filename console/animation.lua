@@ -12,7 +12,6 @@ local function play_phase(phase, stats, palette, delay, duration)
   while not phase:is_done() do
     phase:advance(1)
     local tiles = phase:tiles()
-    local render_started = platform.now()
     render.render_frame({
       tiles = tiles,
       score = stats.score,
@@ -24,8 +23,7 @@ local function play_phase(phase, stats, palette, delay, duration)
     })
     local remaining = phase.total_steps - phase.step
     if duration and remaining > 0 then
-      platform.sleep(animation_fsm.next_frame_delay(deadline, platform.now(), remaining,
-        platform.now() - render_started))
+      platform.sleep(animation_fsm.next_frame_delay(deadline, platform.now(), remaining))
     elseif not duration then
       platform.sleep(delay)
     end

@@ -12,6 +12,9 @@ M.GEOMETRY_UNIT = 3
 M.ANIM_FRAMES = 7
 M.ANIM_FRAME_DELAY = 0.016
 M.SLIDE_DURATION_SECONDS = 0.250
+-- Slide easing power: 1 = linear, 2 = quadratic, 3 = cubic; higher values
+-- make the ease-out start faster and brake harder. Shared by both axes.
+M.ANIM_EASE_POWER = 3
 M.HALF_STEP_ANIMATION = true
 M.MERGE_POP_FRAMES = 6
 M.MERGE_POP_DELAY = 0.02

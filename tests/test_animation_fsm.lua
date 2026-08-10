@@ -23,6 +23,16 @@ T.describe("animation easing", function()
       prev = value
     end
   end)
+
+  T.it("uses the configured easing power", function()
+    local old_power = constants.ANIM_EASE_POWER
+    constants.ANIM_EASE_POWER = 1
+    local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 1, tc = 2, value = 2 } })
+    s:advance(1)
+    local col = s:tiles()[1].col
+    constants.ANIM_EASE_POWER = old_power
+    T.near(col, 1 / constants.ANIM_FRAMES, 1e-6)
+  end)
 end)
 
 T.describe("adaptive frame pacing", function()
@@ -80,11 +90,12 @@ T.describe("SlideFSM", function()
     T.eq(s.total_steps, total_steps)
     for step = 1, total_steps do
       s:advance(1)
-      T.near(s:tiles()[1].row * 8, start_half + direction * step, 1e-6)
+      local eased_step = total_steps * fsm.ease_out_cubic(step / total_steps)
+      T.near(s:tiles()[1].row * 8, start_half + direction * eased_step, 1e-6)
     end
   end
 
-  T.it("moves vertical slides one half-row per frame", function()
+  T.it("uses the same easing for vertical slides", function()
     assert_vertical_half_steps(1, 2, 8)
     assert_vertical_half_steps(1, 3, 16)
     assert_vertical_half_steps(4, 1, 24)
@@ -96,7 +107,7 @@ T.describe("SlideFSM", function()
     constants.HALF_STEP_ANIMATION = true
     T.eq(s.total_steps, 4)
     s:advance(1)
-    T.near(s:tiles()[1].row, 0.25, 1e-6)
+    T.near(s:tiles()[1].row, fsm.ease_out_cubic(1 / 4), 1e-6)
   end)
 end)
 

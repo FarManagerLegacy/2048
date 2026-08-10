@@ -23,11 +23,11 @@ local ROW_STEPS_PER_CELL = geometry.CELL_H + geometry.GAP_Y
 local M = {}
 
 local function ease_out_cubic(t)
-  return 1 - (1 - t) ^ 3
+  return 1 - (1 - t) ^ constants.ANIM_EASE_POWER
 end
 M.ease_out_cubic = ease_out_cubic
 
-function M.next_frame_delay(deadline, now, remaining_steps, render_seconds)
+function M.next_frame_delay(deadline, now, remaining_steps)
   if remaining_steps <= 0 then return 0 end
   return math.max(0, (deadline - now) / remaining_steps)
 end
@@ -49,8 +49,6 @@ function M.new_slide(moves)
   return setmetatable({
     moves = moves,
     step = 0,
-    vertical = max_vertical_distance > 0,
-    vertical_steps = vertical_steps,
     total_steps = max_vertical_distance > 0 and max_vertical_distance * vertical_steps or constants.ANIM_FRAMES,
     done = (#moves == 0),
   }, SlideFSM)
@@ -70,18 +68,10 @@ end
 -- Returns the tile list to render for the current frame (0-based row/col).
 function SlideFSM:tiles()
   local out = {}
+  local t = ease_out_cubic(self.step / self.total_steps)
   for _, mv in ipairs(self.moves) do
-    local row, col
-    if self.vertical then
-      local distance = math.abs(mv.tr - mv.fr) * self.vertical_steps
-      local direction = mv.tr >= mv.fr and 1 or -1
-      row = (mv.fr - 1) + direction * math.min(self.step, distance) / self.vertical_steps
-      col = mv.fc - 1
-    else
-      local t = ease_out_cubic(self.step / self.total_steps)
-      row = (mv.fr - 1) + ((mv.tr - 1) - (mv.fr - 1)) * t
-      col = (mv.fc - 1) + ((mv.tc - 1) - (mv.fc - 1)) * t
-    end
+    local row = (mv.fr - 1) + ((mv.tr - 1) - (mv.fr - 1)) * t
+    local col = (mv.fc - 1) + ((mv.tc - 1) - (mv.fc - 1)) * t
     out[#out + 1] = { row = row, col = col, value = mv.value }
   end
   return out

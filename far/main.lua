@@ -42,7 +42,6 @@ local function main()
   local current_focus
   local previous_focus
   local slide_deadline
-  local slide_render_seconds = 0
   local pending_key
 
   local function set_animation_timer_interval()
@@ -50,7 +49,7 @@ local function main()
     local phase = active_animation.phases[active_animation.phase_idx]
     if active_animation.phase_idx == 1 and slide_deadline then
       local remaining = phase.total_steps - phase.step
-      local delay = animation_fsm.next_frame_delay(slide_deadline, now(), remaining, slide_render_seconds)
+      local delay = animation_fsm.next_frame_delay(slide_deadline, now(), remaining)
       timer.Interval = math.max(1, math.floor(delay * 1000 + 0.5))
       return
     end
@@ -118,9 +117,7 @@ local function main()
     end
     if active_animation and not active_animation:is_done() then
       active_animation:advance(config.FRAMES_PER_TICK)
-      local render_started = now()
       request_board_redraw()
-      slide_render_seconds = now() - render_started
       if active_animation.phase_idx ~= 1 then slide_deadline = nil end
       if active_animation:is_done() then
         handle.Enabled = false
