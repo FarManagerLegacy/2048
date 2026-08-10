@@ -67,8 +67,7 @@ local function main()
 
   local function request_board_redraw()
     if hdlg and not closed then
-      -- FAR implements DM_SHOWITEM by sending DM_REDRAW for the dialog.
-      far.SendDlgMessage(hdlg, "DM_SHOWITEM", item_ids.usercontrol, 1)
+      hdlg:ShowItem(item_ids.usercontrol, 1)
     end
   end
 
@@ -81,7 +80,7 @@ local function main()
   end
 
   local function update_view()
-    view.update(far, hdlg, item_ids, geom, session)
+    view.update(hdlg, item_ids, geom, session)
   end
 
   local function save_current()
@@ -190,7 +189,7 @@ local function main()
 
   local function restore_usercontrol_focus(should_restore)
     if should_restore then
-      far.SendDlgMessage(hdlg, 'DM_SETFOCUS', item_ids.usercontrol, nil)
+      hdlg:SetFocus(item_ids.usercontrol)
     end
   end
 
@@ -202,8 +201,8 @@ local function main()
   }
 
   local function draw_key_marker(key)
-    local dialog_rect = far.SendDlgMessage(hdlg, F.DM_GETDLGRECT, 0)
-    local moves_rect = far.SendDlgMessage(hdlg, F.DM_GETITEMPOSITION, item_ids.moves)
+    local dialog_rect = hdlg:GetDlgRect()
+    local moves_rect = hdlg:GetItemPosition(item_ids.moves)
     local color = far.AdvControl(F.ACTL_GETCOLOR, far.Colors.COL_DIALOGHIGHLIGHTTEXT)
     local arrow = arrow_glyphs[key]
     if dialog_rect and moves_rect and color and arrow then
@@ -292,7 +291,7 @@ local function main()
     end
 
     if msg == F.DN_CTLCOLORDLGITEM and param1 == item_ids.status then
-      return view.apply_status_colors(F, bor,
+      return view.apply_status_colors(bor,
         session:has_pending_score() and "" or session.status, param2)
     end
 
