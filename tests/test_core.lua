@@ -101,10 +101,10 @@ T.describe("palette and color", function()
 end)
 
 T.describe("geometry", function()
-  T.it("cell height is always odd", function()
+  T.it("cell height matches the requested geometry unit", function()
     for unit = 1, 9 do
       local _, h = geometry.compute_cell_dimensions(unit, geometry.CHAR_ASPECT)
-      T.eq(h % 2, 1, "height not odd for unit=" .. unit)
+      T.eq(h, unit, "wrong height for unit=" .. unit)
     end
   end)
 

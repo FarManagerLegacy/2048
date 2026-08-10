@@ -18,7 +18,7 @@ local constants = loader("lib/constants")
 local geometry = loader("lib/geometry")
 
 local BOARD_SIZE = constants.BOARD_SIZE
-local ROW_STEPS_PER_CELL = geometry.CELL_H + geometry.GAP_Y
+local ROW_STEPS_PER_CELL = geometry.ROW_STRIDE_Y
 
 local M = {}
 
@@ -45,7 +45,7 @@ function M.new_slide(moves)
   for _, mv in ipairs(moves) do
     max_vertical_distance = math.max(max_vertical_distance, math.abs(mv.tr - mv.fr))
   end
-  local vertical_steps = constants.HALF_STEP_ANIMATION and ROW_STEPS_PER_CELL * 2 or ROW_STEPS_PER_CELL
+  local vertical_steps = constants.USE_HALF_BLOCKS and ROW_STEPS_PER_CELL * 2 or ROW_STEPS_PER_CELL
   return setmetatable({
     moves = moves,
     step = 0,

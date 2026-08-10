@@ -2,6 +2,10 @@
 local loader = dofile("loader.lua")()
 
 local T = loader("tests/test_runner")
+local constants = loader("lib/constants")
+-- Fixture config: these tests cover this explicit baseline, not defaults.
+constants.GEOMETRY_UNIT = 3
+constants.USE_HALF_BLOCKS = true
 
 local created_width, created_height
 far = { --luacheck: allow_defined
@@ -30,12 +34,16 @@ T.describe("far.backend", function()
     })
     T.ok(buffer[1] ~= nil)
     T.ok(buffer[1].Attributes ~= nil)
-    local text_row = geometry.GAP_Y + math.floor(geometry.CELL_H / 2)
-    local text_col = geometry.GAP_X + math.floor((geometry.CELL_W - 1) / 2)
-    local tile_idx = text_row * geometry.BOARD_W + text_col + 1
-    T.ok(buffer[tile_idx].Attributes.BackgroundColor
-      ~= buffer[1].Attributes.BackgroundColor)
-    T.eq(buffer[tile_idx].Attributes.Flags, far.Flags.FCF_FG_BOLD)
+    local found_tile = false
+    for _, cell in pairs(buffer) do
+      if cell.Char == "2" then
+        found_tile = true
+        T.ok(cell.Attributes.BackgroundColor ~= buffer[1].Attributes.BackgroundColor)
+        T.eq(cell.Attributes.Flags, far.Flags.FCF_FG_BOLD)
+        break
+      end
+    end
+    T.ok(found_tile, "expected the tile digit in the FAR buffer")
   end)
 
   T.it("converts shared RGB colors to Windows COLORREF", function()

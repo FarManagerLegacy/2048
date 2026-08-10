@@ -10,7 +10,7 @@ local util = loader("lib/util")
 local constants = loader("lib/constants")
 local BOARD_SIZE = constants.BOARD_SIZE
 local CELL_W, CELL_H = geometry.CELL_W, geometry.CELL_H
-local GAP_X, GAP_Y = geometry.GAP_X, geometry.GAP_Y
+local GAP_X = geometry.GAP_X
 local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
 local LOWER_HALF = "\xe2\x96\x84"
 local UPPER_HALF = "\xe2\x96\x80"
@@ -53,10 +53,16 @@ function M.fill_empty_cells(buf, empty_bg)
   for r = 0, BOARD_SIZE - 1 do
     for c = 0, BOARD_SIZE - 1 do
       local x0 = GAP_X + c * (CELL_W + GAP_X)
-      local y0 = GAP_Y + r * (CELL_H + GAP_Y)
-      for yy = 0, CELL_H - 1 do
-        for xx = 0, CELL_W - 1 do
-          buf[y0 + yy + 1][x0 + xx + 1] = { " ", nil, empty_bg }
+      local y = geometry.OUTER_INSET_Y + r * geometry.ROW_STRIDE_Y
+      if constants.USE_HALF_BLOCKS then
+        local start_half = math.max(0, math.min(BOARD_H * 2 - CELL_H * 2, util.round(2 * y)))
+        for half_y = start_half, start_half + CELL_H * 2 - 1 do
+          for xx = 0, CELL_W - 1 do paint_half(buf, half_y, x0 + xx, empty_bg) end
+        end
+      else
+        local iy = math.max(0, math.min(BOARD_H - CELL_H, util.round(y)))
+        for yy = 0, CELL_H - 1 do
+          for xx = 0, CELL_W - 1 do buf[iy + yy + 1][x0 + xx + 1] = { " ", nil, empty_bg } end
         end
       end
     end
@@ -76,11 +82,11 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
   end
 
   local x = GAP_X + tile.col * (CELL_W + GAP_X)
-  local y = GAP_Y + tile.row * (CELL_H + GAP_Y)
+  local y = geometry.OUTER_INSET_Y + tile.row * geometry.ROW_STRIDE_Y
   local ix = math.max(0, math.min(BOARD_W - CELL_W, util.round(x)))
   local iy = math.max(0, math.min(BOARD_H - CELL_H, util.round(y)))
   local text_row
-  if constants.HALF_STEP_ANIMATION then
+  if constants.USE_HALF_BLOCKS then
     local start_half = math.max(0, math.min(BOARD_H * 2 - CELL_H * 2, util.round(2 * y)))
     for half_y = start_half, start_half + CELL_H * 2 - 1 do
       for xx = 0, CELL_W - 1 do paint_half(buf, half_y, ix + xx, bg) end

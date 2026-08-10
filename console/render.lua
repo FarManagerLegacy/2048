@@ -3,9 +3,10 @@ local geometry = loader("lib/geometry")
 local color = loader("lib/color")
 local util = loader("lib/util")
 local canvas = loader("lib/tile_canvas")
+local constants = loader("lib/constants")
 
 local CELL_W, CELL_H = geometry.CELL_W, geometry.CELL_H
-local GAP_X, GAP_Y = geometry.GAP_X, geometry.GAP_Y
+local GAP_X = geometry.GAP_X
 local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
 
 local M = {}
@@ -112,9 +113,15 @@ function M.render_frame(opts)
       local r, c = sp.rc[1], sp.rc[2]
       local sp_color, ch = sp.color, sp.ch
       local x0 = GAP_X + c * (CELL_W + GAP_X)
-      local y0 = GAP_Y + r * (CELL_H + GAP_Y)
+      local y0 = geometry.OUTER_INSET_Y + r * geometry.ROW_STRIDE_Y
       local cx = x0 + math.floor(CELL_W / 2)
-      local cy = y0 + math.floor(CELL_H / 2)
+      local cy
+      if constants.USE_HALF_BLOCKS then
+        local start_half = math.max(0, math.min(BOARD_H * 2 - CELL_H * 2, util.round(2 * y0)))
+        cy = math.floor((start_half + CELL_H) / 2)
+      else
+        cy = util.round(y0) + math.floor(CELL_H / 2)
+      end
       buf[cy + 1][cx + 1] = { ch, sp_color, empty_bg }
     end
   end

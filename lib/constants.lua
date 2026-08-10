@@ -15,7 +15,8 @@ M.SLIDE_DURATION_SECONDS = 0.250
 -- Slide easing power: 1 = linear, 2 = quadratic, 3 = cubic; higher values
 -- make the ease-out start faster and brake harder. Shared by both axes.
 M.ANIM_EASE_POWER = 3
-M.HALF_STEP_ANIMATION = true
+-- Master switch for half-block static rendering and vertical animation.
+M.USE_HALF_BLOCKS = true
 M.MERGE_POP_FRAMES = 6
 M.MERGE_POP_DELAY = 0.02
 M.SPAWN_FADE_FRAMES = 4

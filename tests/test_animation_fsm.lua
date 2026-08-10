@@ -6,8 +6,12 @@ local loader = dofile("loader.lua")()
 
 local T = loader("tests/test_runner")
 local board = loader("lib/board")
-local fsm = loader("lib/animation_fsm")
 local constants = loader("lib/constants")
+-- Fixture config: these tests cover this explicit baseline, not defaults.
+constants.GEOMETRY_UNIT = 3
+constants.USE_HALF_BLOCKS = true
+local fsm = loader("lib/animation_fsm")
+local geometry = loader("lib/geometry")
 
 T.describe("animation easing", function()
   T.it("starts at 0 and ends at 1", function()
@@ -85,29 +89,30 @@ T.describe("SlideFSM", function()
 
   local function assert_vertical_half_steps(fr, tr, total_steps)
     local s = fsm.new_slide({ { fr = fr, fc = 1, tr = tr, tc = 1, value = 2 } })
-    local start_half = (fr - 1) * 8
+    local start_half = (fr - 1) * geometry.ROW_STRIDE_Y * 2
     local direction = tr > fr and 1 or -1
     T.eq(s.total_steps, total_steps)
     for step = 1, total_steps do
       s:advance(1)
       local eased_step = total_steps * fsm.ease_out_cubic(step / total_steps)
-      T.near(s:tiles()[1].row * 8, start_half + direction * eased_step, 1e-6)
+      T.near(s:tiles()[1].row * geometry.ROW_STRIDE_Y * 2, start_half + direction * eased_step, 1e-6)
     end
   end
 
   T.it("uses the same easing for vertical slides", function()
-    assert_vertical_half_steps(1, 2, 8)
-    assert_vertical_half_steps(1, 3, 16)
-    assert_vertical_half_steps(4, 1, 24)
+    assert_vertical_half_steps(1, 2, geometry.ROW_STRIDE_Y * 2)
+    assert_vertical_half_steps(1, 3, geometry.ROW_STRIDE_Y * 4)
+    assert_vertical_half_steps(4, 1, geometry.ROW_STRIDE_Y * 6)
   end)
 
-  T.it("uses full-row vertical steps when half animation is disabled", function()
-    constants.HALF_STEP_ANIMATION = false
+  T.it("uses whole-row vertical steps when half blocks are disabled", function()
+    local old_use_half_blocks = constants.USE_HALF_BLOCKS
+    constants.USE_HALF_BLOCKS = false
     local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 2, tc = 1, value = 2 } })
-    constants.HALF_STEP_ANIMATION = true
-    T.eq(s.total_steps, 4)
+    constants.USE_HALF_BLOCKS = old_use_half_blocks
+    T.eq(s.total_steps, geometry.ROW_STRIDE_Y)
     s:advance(1)
-    T.near(s:tiles()[1].row, fsm.ease_out_cubic(1 / 4), 1e-6)
+    T.near(s:tiles()[1].row, fsm.ease_out_cubic(1 / geometry.ROW_STRIDE_Y), 1e-6)
   end)
 end)
 
