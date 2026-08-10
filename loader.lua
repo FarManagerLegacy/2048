@@ -92,8 +92,13 @@ local function make_bundle(entry, output, root)
 
   local function imports(source)
     local names = {}
-    for name in source:gmatch('loader%s*%(%s*"([^"]+)"%s*%)') do
-      names[#names + 1] = name
+    for line in source:gmatch("[^\r\n]*\r?\n?") do
+      if line == "" then break end
+      if not line:match("^%s*%-%-") then
+        for name in line:gmatch('loader%s*%(%s*"([^"]+)"%s*%)') do
+          names[#names + 1] = name
+        end
+      end
     end
     return names
   end
