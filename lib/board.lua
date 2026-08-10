@@ -2,16 +2,21 @@
 local M = {}
 local constants = loader("lib/constants")
 
-M.BOARD_SIZE = constants.BOARD_SIZE
 M.WIN_VALUE = constants.WIN_VALUE
 
-local BOARD_SIZE = M.BOARD_SIZE
+local function dimensions(board)
+  if board then
+    return #(board[1] or {}), #board
+  end
+  return constants.BOARD_WIDTH, constants.BOARD_HEIGHT
+end
 
 function M.new_empty_board()
+  local BOARD_WIDTH, BOARD_HEIGHT = dimensions()
   local b = {}
-  for r = 1, BOARD_SIZE do
+  for r = 1, BOARD_HEIGHT do
     b[r] = {}
-    for c = 1, BOARD_SIZE do
+    for c = 1, BOARD_WIDTH do
       b[r][c] = 0
     end
   end
@@ -19,10 +24,11 @@ function M.new_empty_board()
 end
 
 function M.copy_board(board)
+  local BOARD_WIDTH, BOARD_HEIGHT = dimensions(board)
   local b = {}
-  for r = 1, BOARD_SIZE do
+  for r = 1, BOARD_HEIGHT do
     b[r] = {}
-    for c = 1, BOARD_SIZE do
+    for c = 1, BOARD_WIDTH do
       b[r][c] = board[r][c]
     end
   end
@@ -30,24 +36,25 @@ function M.copy_board(board)
 end
 
 function M.boards_equal(a, b)
-  for r = 1, BOARD_SIZE do
-    for c = 1, BOARD_SIZE do
+  local BOARD_WIDTH, BOARD_HEIGHT = dimensions(a)
+  for r = 1, BOARD_HEIGHT do
+    for c = 1, BOARD_WIDTH do
       if a[r][c] ~= b[r][c] then return false end
     end
   end
   return true
 end
 
-local function coord(direction, line_index, k)
-  local flip = BOARD_SIZE + 1 - k
+local function coord(direction, line_index, k, board)
+  local BOARD_WIDTH, BOARD_HEIGHT = dimensions(board)
   if direction == "left" then
     return line_index, k
   elseif direction == "right" then
-    return line_index, flip
+    return line_index, BOARD_WIDTH + 1 - k
   elseif direction == "up" then
     return k, line_index
   elseif direction == "down" then
-    return flip, line_index
+    return BOARD_HEIGHT + 1 - k, line_index
   else
     error("unknown direction: " .. tostring(direction))
   end
@@ -82,14 +89,21 @@ end
 M._process_line = process_line
 
 function M.move_board(board, direction)
-  local new_board = M.new_empty_board()
+  local BOARD_WIDTH, BOARD_HEIGHT = dimensions(board)
+  local new_board = {}
+  for r = 1, BOARD_HEIGHT do
+    new_board[r] = {}
+    for c = 1, BOARD_WIDTH do new_board[r][c] = 0 end
+  end
   local all_moves = {}
   local total_score = 0
 
-  for line_index = 1, BOARD_SIZE do
+  local line_count = (direction == "left" or direction == "right") and BOARD_HEIGHT or BOARD_WIDTH
+  local line_length = (direction == "left" or direction == "right") and BOARD_WIDTH or BOARD_HEIGHT
+  for line_index = 1, line_count do
     local vals = {}
-    for k = 1, BOARD_SIZE do
-      local r, c = coord(direction, line_index, k)
+    for k = 1, line_length do
+      local r, c = coord(direction, line_index, k, board)
       local v = board[r][c]
       if v ~= 0 then
         vals[#vals + 1] = { value = v, k = k }
@@ -100,13 +114,13 @@ function M.move_board(board, direction)
     total_score = total_score + score
 
     for k, v in ipairs(result) do
-      local r, c = coord(direction, line_index, k)
+      local r, c = coord(direction, line_index, k, board)
       new_board[r][c] = v
     end
 
     for _, mv in ipairs(moves) do
-      local fr, fc = coord(direction, line_index, mv.from_k)
-      local tr, tc = coord(direction, line_index, mv.to_k)
+      local fr, fc = coord(direction, line_index, mv.from_k, board)
+      local tr, tc = coord(direction, line_index, mv.to_k, board)
       all_moves[#all_moves + 1] = {
         fr = fr, fc = fc, tr = tr, tc = tc,
         value = mv.value, merged = mv.merged,
@@ -119,9 +133,10 @@ function M.move_board(board, direction)
 end
 
 function M.spawn_tile(board)
+  local BOARD_WIDTH, BOARD_HEIGHT = dimensions(board)
   local empties = {}
-  for r = 1, BOARD_SIZE do
-    for c = 1, BOARD_SIZE do
+  for r = 1, BOARD_HEIGHT do
+    for c = 1, BOARD_WIDTH do
       if board[r][c] == 0 then
         empties[#empties + 1] = { r, c }
       end
@@ -143,8 +158,9 @@ function M.any_move_possible(board)
 end
 
 function M.has_won(board)
-  for r = 1, BOARD_SIZE do
-    for c = 1, BOARD_SIZE do
+  local BOARD_WIDTH, BOARD_HEIGHT = dimensions(board)
+  for r = 1, BOARD_HEIGHT do
+    for c = 1, BOARD_WIDTH do
       if board[r][c] >= M.WIN_VALUE then return true end
     end
   end

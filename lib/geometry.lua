@@ -4,7 +4,7 @@ local constants = loader("lib/constants")
 
 local M = {}
 
-M.CHAR_ASPECT = constants.GEOMETRY_CHAR_ASPECT
+M.CHAR_ASPECT = constants.CHAR_ASPECT
 M.UNIT = constants.GEOMETRY_UNIT
 
 function M.compute_cell_dimensions(unit, char_aspect)
@@ -25,11 +25,20 @@ M.CELL_W, M.CELL_H = M.compute_cell_dimensions(M.UNIT, M.CHAR_ASPECT)
 M.GAP_X, M.GAP_Y = 2, 1
 M.OUTER_INSET_Y, M.ROW_STRIDE_Y = M.compute_vertical_layout(M.CELL_H, M.GAP_Y, constants.USE_HALF_BLOCKS)
 
-M.BOARD_W = constants.BOARD_SIZE * M.CELL_W + (constants.BOARD_SIZE + 1) * M.GAP_X
+M.BOARD_W = constants.BOARD_WIDTH * M.CELL_W + (constants.BOARD_WIDTH + 1) * M.GAP_X
 M.BOARD_H = math.ceil(
-  constants.BOARD_SIZE * M.CELL_H
-  + (constants.BOARD_SIZE - 1) * M.GAP_Y
+  constants.BOARD_HEIGHT * M.CELL_H
+  + (constants.BOARD_HEIGHT - 1) * M.GAP_Y
   + 2 * M.OUTER_INSET_Y
 )
+
+function M.set_board_dimensions(width, height)
+  M.BOARD_W = width * M.CELL_W + (width + 1) * M.GAP_X
+  M.BOARD_H = math.ceil(
+    height * M.CELL_H
+    + (height - 1) * M.GAP_Y
+    + 2 * M.OUTER_INSET_Y
+  )
+end
 
 return M

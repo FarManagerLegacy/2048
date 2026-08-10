@@ -6,12 +6,14 @@ local platform = loader("console/platform")
 local constants = loader("lib/constants")
 
 local M = {}
+local average_render_time = constants.ANIM_FRAME_DELAY
 
 local function play_phase(phase, stats, palette, delay, duration)
   local deadline = duration and platform.now() + duration
   while not phase:is_done() do
     phase:advance(1)
     local tiles = phase:tiles()
+    local started = platform.now()
     render.render_frame({
       tiles = tiles,
       score = stats.score,
@@ -21,6 +23,8 @@ local function play_phase(phase, stats, palette, delay, duration)
       elapsed_seconds = stats.elapsed_seconds,
       palette = palette,
     })
+    local elapsed = platform.now() - started
+    average_render_time = 0.8 * average_render_time + 0.2 * elapsed
     local remaining = phase.total_steps - phase.step
     if duration and remaining > 0 then
       platform.sleep(animation_fsm.next_frame_delay(deadline, platform.now(), remaining))
@@ -32,7 +36,7 @@ end
 
 function M.play_move(new_board, moves, spawned_board, spawned, stats, palette)
   local animation = animation_fsm.new_move_animation(
-    new_board, moves, spawned_board, spawned, palette
+    new_board, moves, spawned_board, spawned, palette, average_render_time
   )
   local delays = {
     constants.ANIM_FRAME_DELAY,
@@ -48,7 +52,7 @@ function M.play_move(new_board, moves, spawned_board, spawned, stats, palette)
 end
 
 function M.animate_slide(moves, score, best, moves_count, elapsed_seconds, palette)
-  local phase = animation_fsm.new_slide(moves)
+  local phase = animation_fsm.new_slide(moves, average_render_time)
   play_phase(phase, {
     score = score, best = best, moves_count = moves_count,
     elapsed_seconds = elapsed_seconds,

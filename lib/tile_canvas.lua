@@ -8,10 +8,8 @@ local color = loader("lib/color")
 local util = loader("lib/util")
 
 local constants = loader("lib/constants")
-local BOARD_SIZE = constants.BOARD_SIZE
 local CELL_W, CELL_H = geometry.CELL_W, geometry.CELL_H
 local GAP_X = geometry.GAP_X
-local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
 local LOWER_HALF = "\xe2\x96\x84"
 local UPPER_HALF = "\xe2\x96\x80"
 
@@ -38,6 +36,7 @@ local function paint_half(buf, half_y, x, bg)
 end
 
 function M.new_buffer(bg)
+  local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
   local buf = {}
   for y = 1, BOARD_H do
     local row = {}
@@ -50,8 +49,9 @@ function M.new_buffer(bg)
 end
 
 function M.fill_empty_cells(buf, empty_bg)
-  for r = 0, BOARD_SIZE - 1 do
-    for c = 0, BOARD_SIZE - 1 do
+  local BOARD_H = geometry.BOARD_H
+  for r = 0, constants.BOARD_HEIGHT - 1 do
+    for c = 0, constants.BOARD_WIDTH - 1 do
       local x0 = GAP_X + c * (CELL_W + GAP_X)
       local y = geometry.OUTER_INSET_Y + r * geometry.ROW_STRIDE_Y
       if constants.USE_HALF_BLOCKS then
@@ -70,6 +70,7 @@ function M.fill_empty_cells(buf, empty_bg)
 end
 
 function M.draw_tile(buf, tile, empty_bg, palette, fade)
+  local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
   local alpha = tile.alpha or 1.0
   local bg = tile.bg or color.tile_color(tile.value, palette)
   if alpha < 1.0 then

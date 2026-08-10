@@ -43,6 +43,7 @@ local function main()
   local previous_focus
   local slide_deadline
   local pending_key
+  local average_render_time = constants.ANIM_FRAME_DELAY
 
   local function set_animation_timer_interval()
     if not timer or not active_animation or active_animation:is_done() then return end
@@ -67,7 +68,10 @@ local function main()
 
   local function request_board_redraw()
     if hdlg and not closed then
+      local started = now()
       hdlg:ShowItem(item_ids.usercontrol, 1)
+      local elapsed = now() - started
+      average_render_time = 0.8 * average_render_time + 0.2 * elapsed
     end
   end
 
@@ -94,9 +98,10 @@ local function main()
     sync_clock_timer_interval()
     active_animation = animation_fsm.new_move_animation(
       result.new_board, result.moves, result.spawned_board, result.spawned,
-      session.palette
+      session.palette, average_render_time
     )
-    slide_deadline = now() + constants.SLIDE_DURATION_SECONDS
+    slide_deadline = now() + animation_fsm.max_distance(result.moves)
+      * constants.SLIDE_DURATION_PER_CELL
     update_view()
     set_animation_timer_interval()
     if timer then timer.Enabled = true end
@@ -273,6 +278,7 @@ local function main()
     end
 
     if msg == F.DN_BTNCLICK then
+      set_auto_play(false)
       if active_animation then return true end
       local action = button_actions[param1]
       if not action then return nil end

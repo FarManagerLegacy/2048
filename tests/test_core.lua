@@ -8,6 +8,7 @@ local util = loader("lib/util")
 local color = loader("lib/color")
 local geometry = loader("lib/geometry")
 local save = loader("lib/save")
+local constants = loader("lib/constants")
 
 math.randomseed(12345)
 
@@ -43,6 +44,22 @@ T.describe("move mechanics", function()
     local new_b, _, score, changed = board.move_board(b, "right")
     T.ok(changed)
     T.eq(new_b[2][4], 4)
+    T.eq(score, 4)
+  end)
+
+  T.it("uses the dimensions of a rectangular board", function()
+    local b = {
+      { 1, 0, 1, 0, 0 },
+      { 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0 },
+    }
+    local new_b, _, score, changed = board.move_board(b, "right")
+    T.ok(changed)
+    T.eq(new_b, {
+      { 0, 0, 0, 0, 2 },
+      { 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0 },
+    })
     T.eq(score, 4)
   end)
 end)
@@ -169,6 +186,28 @@ T.describe("save/load round trip", function()
     T.eq(loaded.best, 500)
     T.eq(loaded.moves_count, 7)
     T.eq(loaded.elapsed_seconds, 42.5)
+    teardown_tmp_save_path()
+  end)
+
+  T.it("round trip preserves saved rectangular geometry", function()
+    setup_tmp_save_path()
+    local b = {
+      { 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 0 },
+      { 0, 0, 0, 0, 2 },
+    }
+    save.save_state({
+      board = b,
+      score = 0, best = 0, moves_count = 0,
+      elapsed_seconds = 0, palette = "classic",
+    })
+    local loaded = save.load_state()
+    T.eq(loaded.board, b)
+    local effective = board.new_empty_board()
+    T.eq(#effective, 3)
+    T.eq(#effective[1], 5)
+    constants.BOARD_WIDTH, constants.BOARD_HEIGHT = 4, 4
+    geometry.set_board_dimensions(4, 4)
     teardown_tmp_save_path()
   end)
 

@@ -35,7 +35,7 @@ T.describe("animation easing", function()
     s:advance(1)
     local col = s:tiles()[1].col
     constants.ANIM_EASE_POWER = old_power
-    T.near(col, 1 / constants.ANIM_FRAMES, 1e-6)
+    T.near(col, 1 / s.total_steps, 1e-6)
   end)
 end)
 
@@ -58,7 +58,7 @@ T.describe("SlideFSM", function()
     local moves = { { fr = 1, fc = 1, tr = 1, tc = 2, value = 2, merged = false } }
     local s = fsm.new_slide(moves)
     T.not_ok(s:is_done())
-    s:advance(constants.ANIM_FRAMES)
+    s:advance(s.total_steps)
     T.ok(s:is_done())
     local tiles = s:tiles()
     T.eq(#tiles, 1)
@@ -82,9 +82,9 @@ T.describe("SlideFSM", function()
 
   T.it("keeps horizontal slides on the cubic seven-frame curve", function()
     local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 1, tc = 2, value = 2 } })
-    T.eq(s.total_steps, constants.ANIM_FRAMES)
+    T.eq(s.total_steps, geometry.CELL_W + geometry.GAP_X > 0 and 5 or 0)
     s:advance(1)
-    T.near(s:tiles()[1].col, fsm.ease_out_cubic(1 / constants.ANIM_FRAMES), 1e-6)
+    T.near(s:tiles()[1].col, fsm.ease_out_cubic(1 / s.total_steps), 1e-6)
   end)
 
   local function assert_vertical_half_steps(fr, tr, total_steps)
@@ -94,15 +94,16 @@ T.describe("SlideFSM", function()
     T.eq(s.total_steps, total_steps)
     for step = 1, total_steps do
       s:advance(1)
-      local eased_step = total_steps * fsm.ease_out_cubic(step / total_steps)
+      local eased_step = math.abs(tr - fr) * geometry.ROW_STRIDE_Y * 2
+        * fsm.ease_out_cubic(step / total_steps)
       T.near(s:tiles()[1].row * geometry.ROW_STRIDE_Y * 2, start_half + direction * eased_step, 1e-6)
     end
   end
 
   T.it("uses the same easing for vertical slides", function()
-    assert_vertical_half_steps(1, 2, geometry.ROW_STRIDE_Y * 2)
-    assert_vertical_half_steps(1, 3, geometry.ROW_STRIDE_Y * 4)
-    assert_vertical_half_steps(4, 1, geometry.ROW_STRIDE_Y * 6)
+    assert_vertical_half_steps(1, 2, 5)
+    assert_vertical_half_steps(1, 3, 10)
+    assert_vertical_half_steps(4, 1, 15)
   end)
 
   T.it("uses whole-row vertical steps when half blocks are disabled", function()
@@ -222,7 +223,7 @@ T.describe("MoveAnimation sequencing", function()
     local anim = fsm.new_move_animation(new_b, moves, new_b, nil)
     T.not_ok(anim:is_done())
 
-    anim:advance(constants.ANIM_FRAMES)
+    anim:advance(anim.phases[1].total_steps)
     T.not_ok(anim:is_done())
 
     anim:advance(constants.MERGE_POP_FRAMES)
@@ -240,7 +241,7 @@ T.describe("MoveAnimation sequencing", function()
     T.ok(spawned ~= nil)
 
     local anim = fsm.new_move_animation(new_b, moves, spawned_board, spawned)
-    anim:advance(constants.ANIM_FRAMES)
+    anim:advance(anim.phases[1].total_steps)
     anim:advance(constants.MERGE_POP_FRAMES)
     T.not_ok(anim:is_done())
     anim:advance(constants.SPAWN_FADE_FRAMES)
@@ -268,7 +269,7 @@ T.describe("MoveAnimation sequencing", function()
       total_advances = total_advances + 1
     end
     T.ok(anim:is_done())
-    T.eq(total_advances, constants.ANIM_FRAMES + constants.MERGE_POP_FRAMES)
+    T.eq(total_advances, anim.phases[1].total_steps + constants.MERGE_POP_FRAMES)
   end)
 end)
 

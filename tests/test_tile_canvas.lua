@@ -39,8 +39,10 @@ T.describe("tile_canvas", function()
     T.eq(stride, 2)
   end)
 
-  T.it("keeps a visible vertical gap at geometry size four", function()
-    local _, gap_y = geometry.compute_gaps(4)
+  T.it("keeps a vertical gap at even geometry sizes", function()
+    local _, gap_y = geometry.compute_gaps(2)
+    T.eq(gap_y, 1)
+    _, gap_y = geometry.compute_gaps(4)
     T.eq(gap_y, 1)
   end)
 
@@ -87,6 +89,16 @@ T.describe("tile_canvas", function()
     T.eq(buf[text_row][text_col][1], "2")
     T.eq(buf[text_row][text_col][3], color.tile_color(2, "classic"))
     T.ok(buf[text_row][text_col][4], "tile digits should be bold")
+  end)
+
+  T.it("uses the active palette for tile text color", function()
+    local palette = "amber"
+    local buf = canvas.rasterize({ { row = 0, col = 0, value = 2 } }, {
+      palette = palette,
+    })
+    local text_row = math.floor(geometry.OUTER_INSET_Y + math.floor(geometry.CELL_H / 2)) + 1
+    local text_col = geometry.GAP_X + math.floor((geometry.CELL_W - 1) / 2) + 1
+    T.eq(buf[text_row][text_col][2], color.tile_text_color(2, palette))
   end)
 
   T.it("rasterizes empty cells and tiles with palette colors", function()

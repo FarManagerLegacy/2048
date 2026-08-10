@@ -17,7 +17,6 @@ local util = loader("lib/util")
 local constants = loader("lib/constants")
 local geometry = loader("lib/geometry")
 
-local BOARD_SIZE = constants.BOARD_SIZE
 local ROW_STEPS_PER_CELL = geometry.ROW_STRIDE_Y
 
 local M = {}
@@ -40,16 +39,37 @@ local SlideFSM = {}
 SlideFSM.__index = SlideFSM
 
 -- moves: array of {fr, fc, tr, tc, value, merged} with 1-based board coords.
-function M.new_slide(moves)
-  local max_vertical_distance = 0
+function M.max_distance(moves)
+  local max_distance = 0
   for _, mv in ipairs(moves) do
-    max_vertical_distance = math.max(max_vertical_distance, math.abs(mv.tr - mv.fr))
+    max_distance = math.max(max_distance,
+      math.abs(mv.tr - mv.fr) + math.abs(mv.tc - mv.fc))
   end
-  local vertical_steps = constants.USE_HALF_BLOCKS and ROW_STEPS_PER_CELL * 2 or ROW_STEPS_PER_CELL
+  return max_distance
+end
+
+function M.geometric_steps_per_cell(horizontal)
+  if horizontal then return geometry.CELL_W + geometry.GAP_X end
+  return constants.USE_HALF_BLOCKS and ROW_STEPS_PER_CELL * 2 or ROW_STEPS_PER_CELL
+end
+
+function M.new_slide(moves, frame_interval)
+  local raw_steps = 0
+  local max_distance = M.max_distance(moves)
+  local horizontal_steps = M.geometric_steps_per_cell(true)
+  local vertical_steps = M.geometric_steps_per_cell(false)
+  for _, mv in ipairs(moves) do
+    raw_steps = math.max(raw_steps,
+      math.abs(mv.tc - mv.fc) * horizontal_steps
+      + math.abs(mv.tr - mv.fr) * vertical_steps)
+  end
+  local duration = max_distance * constants.SLIDE_DURATION_PER_CELL
+  local max_steps = math.floor(duration / (frame_interval or constants.ANIM_FRAME_DELAY))
   return setmetatable({
     moves = moves,
     step = 0,
-    total_steps = max_vertical_distance > 0 and max_vertical_distance * vertical_steps or constants.ANIM_FRAMES,
+    total_steps = #moves == 0 and 0 or math.max(1, math.min(raw_steps, max_steps)),
+    duration = duration,
     done = (#moves == 0),
   }, SlideFSM)
 end
@@ -105,8 +125,8 @@ function M.new_merge_pop(board, moves, palette)
   end
 
   local static_tiles = {}
-  for r = 1, BOARD_SIZE do
-    for c = 1, BOARD_SIZE do
+  for r = 1, constants.BOARD_HEIGHT do
+    for c = 1, constants.BOARD_WIDTH do
       local key = r .. "," .. c
       if board[r][c] ~= 0 and merge_targets[key] == nil then
         static_tiles[#static_tiles + 1] = { row = r - 1, col = c - 1, value = board[r][c] }
@@ -194,8 +214,8 @@ function SpawnFadeFSM:tiles()
   local alpha = self.step / self.total_steps
   local sr, sc, sval = self.spawned.r, self.spawned.c, self.spawned.value
   local out = {}
-  for r = 1, BOARD_SIZE do
-    for c = 1, BOARD_SIZE do
+  for r = 1, constants.BOARD_HEIGHT do
+    for c = 1, constants.BOARD_WIDTH do
       if self.board[r][c] ~= 0 then
         if r == sr and c == sc then
           out[#out + 1] = { row = r - 1, col = c - 1, value = sval, alpha = alpha }
@@ -223,9 +243,9 @@ MoveAnimation.__index = MoveAnimation
 
 -- new_board: board after the move (pre-spawn). moves: from move_board().
 -- spawned_board/spawned: board+tile after spawn_tile() was applied.
-function M.new_move_animation(new_board, moves, spawned_board, spawned, palette)
+function M.new_move_animation(new_board, moves, spawned_board, spawned, palette, frame_interval)
   local phases = {}
-  phases[#phases + 1] = M.new_slide(moves)
+  phases[#phases + 1] = M.new_slide(moves, frame_interval)
   phases[#phases + 1] = M.new_merge_pop(new_board, moves, palette)
   if spawned then
     phases[#phases + 1] = M.new_spawn_fade(spawned_board, spawned, palette)

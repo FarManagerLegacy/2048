@@ -3,15 +3,18 @@ local M = {}
 
 -- Game rules: these values define the board contract and spawn behavior.
 M.BOARD_SIZE = 4
+M.BOARD_WIDTH = M.BOARD_SIZE
+M.BOARD_HEIGHT = M.BOARD_SIZE
 M.WIN_VALUE = 2048
 M.SPAWN_FOUR_PROBABILITY = 0.1
 -- Shared board geometry defaults. geometry.lua derives cell/gap dimensions.
-M.GEOMETRY_CHAR_ASPECT = 2.6
+M.FONT_ASPECT_CORRECTION = 1.3
+M.TILE_ASPECT = 1
+M.CHAR_ASPECT = 2 * M.TILE_ASPECT * M.FONT_ASPECT_CORRECTION
 M.GEOMETRY_UNIT = 3
 
-M.ANIM_FRAMES = 7
 M.ANIM_FRAME_DELAY = 0.016
-M.SLIDE_DURATION_SECONDS = 0.250
+M.SLIDE_DURATION_PER_CELL = 0.080
 -- Slide easing power: 1 = linear, 2 = quadratic, 3 = cubic; higher values
 -- make the ease-out start faster and brake harder. Shared by both axes.
 M.ANIM_EASE_POWER = 3
