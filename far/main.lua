@@ -17,7 +17,7 @@ local save = loader("lib/save")
 local layout = loader("far/dialog_layout")
 local view = loader("far/dialog_view")
 local status_effect = loader("lib/status_effect")
-local arrow_keys = { up = true, down = true, left = true, right = true }
+local arrow_glyphs = { up = "↑", down = "↓", left = "←", right = "→" }
 
 local function main()
   local now
@@ -201,8 +201,23 @@ local function main()
     [item_ids.pause_button] = toggle_pause,
   }
 
+  local function draw_key_marker(key)
+    local dialog_rect = far.SendDlgMessage(hdlg, F.DM_GETDLGRECT, 0)
+    local moves_rect = far.SendDlgMessage(hdlg, F.DM_GETITEMPOSITION, item_ids.moves)
+    local color = far.AdvControl(F.ACTL_GETCOLOR, far.Colors.COL_DIALOGHIGHLIGHTTEXT)
+    local arrow = arrow_glyphs[key]
+    if dialog_rect and moves_rect and color and arrow then
+      far.Text(dialog_rect.Left + moves_rect.Left - 1,
+        dialog_rect.Top + moves_rect.Top, color, arrow)
+      far.Text()
+    end
+  end
+
   local function dispatch_key(key)
-    local is_arrow = arrow_keys[key]
+    local is_arrow = arrow_glyphs[key] ~= nil
+    if config.DEBUG and is_arrow then
+      draw_key_marker(key)
+    end
     if active_animation then
       if is_arrow then
         if not pending_key then pending_key = key end

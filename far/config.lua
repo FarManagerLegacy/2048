@@ -5,6 +5,7 @@ local constants = loader("lib/constants")
 -- The interval is changed per FSM phase below because merge-pop intentionally
 -- has a different delay from slide and spawn-fade.
 M.FRAMES_PER_TICK = 1
+M.DEBUG = false
 M.TIMER_INTERVAL_MS = math.floor(constants.ANIM_FRAME_DELAY * 1000 + 0.5)
 M.PHASE_DELAYS = {
   constants.ANIM_FRAME_DELAY,
