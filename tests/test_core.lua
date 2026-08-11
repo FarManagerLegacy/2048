@@ -8,42 +8,41 @@ local util = loader("lib/util")
 local color = loader("lib/color")
 local geometry = loader("lib/geometry")
 local save = loader("lib/save")
-local constants = loader("lib/constants")
 
 math.randomseed(12345)
 
 T.describe("move mechanics", function()
   T.it("simple merge left", function()
     local b = board.new_empty_board()
-    b[1][1], b[1][2] = 2, 2
+    b[1][1], b[1][2] = 1, 1
     local new_b, _, score, changed = board.move_board(b, "left")
     T.ok(changed)
-    T.eq(new_b[1][1], 4)
+    T.eq(new_b[1][1], 2)
     T.eq(score, 4)
   end)
 
   T.it("no double merge in one move", function()
     local b = board.new_empty_board()
-    b[1] = { 2, 2, 2, 2 }
+    b[1] = { 1, 1, 1, 1 }
     local new_b, _, score, _ = board.move_board(b, "left")
-    T.eq(new_b[1], { 4, 4, 0, 0 })
+    T.eq(new_b[1], { 2, 2, 0, 0 })
     T.eq(score, 8)
   end)
 
   T.it("move without change reports unchanged", function()
     local b = board.new_empty_board()
-    b[1] = { 2, 4, 8, 16 }
+    b[1] = { 1, 2, 3, 4 }
     local _, _, _, changed = board.move_board(b, "left")
     T.not_ok(changed)
   end)
 
   T.it("all four directions agree on symmetry", function()
     local b = board.new_empty_board()
-    b[2][2] = 2
-    b[2][3] = 2
+    b[2][2] = 1
+    b[2][3] = 1
     local new_b, _, score, changed = board.move_board(b, "right")
     T.ok(changed)
-    T.eq(new_b[2][4], 4)
+    T.eq(new_b[2][4], 2)
     T.eq(score, 4)
   end)
 
@@ -67,10 +66,10 @@ end)
 T.describe("end-state detection", function()
   T.it("reported stuck board is detected as game_over", function()
     local b = {
-      { 2, 4, 32, 16 },
-      { 8, 16, 64, 2 },
-      { 16, 32, 128, 8 },
-      { 4, 2, 8, 2 },
+      { 1, 2, 5, 4 },
+      { 3, 4, 6, 1 },
+      { 4, 5, 7, 3 },
+      { 2, 1, 3, 1 },
     }
     T.not_ok(board.any_move_possible(b))
     T.eq(board.compute_status(b), "game_over")
@@ -78,16 +77,16 @@ T.describe("end-state detection", function()
 
   T.it("board with empty cell is not game_over", function()
     local b = board.new_empty_board()
-    b[1][1] = 2
+    b[1][1] = 1
     T.eq(board.compute_status(b), "")
   end)
 
   T.it("win takes priority over game_over check", function()
     local b = {
-      { 2048, 2, 4, 8 },
-      { 16, 32, 64, 128 },
-      { 256, 512, 2, 4 },
-      { 8, 16, 32, 64 },
+      { 11, 1, 2, 3 },
+      { 4, 5, 6, 7 },
+      { 8, 9, 1, 2 },
+      { 3, 4, 5, 6 },
     }
     T.eq(board.compute_status(b), "won")
   end)
@@ -107,16 +106,16 @@ T.describe("palette and color", function()
   T.it("classic palette matches original 2048 colors", function()
     T.eq(color.board_bg_color("classic"), { 187, 173, 160 })
     T.eq(color.empty_color("classic"), { 205, 193, 180 })
+    T.eq(color.tile_text_color(1, "classic"), { 119, 110, 101 })
     T.eq(color.tile_text_color(2, "classic"), { 119, 110, 101 })
-    T.eq(color.tile_text_color(4, "classic"), { 119, 110, 101 })
-    T.eq(color.tile_text_color(8, "classic"), { 249, 246, 242 })
-    T.eq(color.tile_color(2, "classic"), { 238, 228, 218 })
-    T.eq(color.tile_color(2048, "classic"), { 237, 194, 46 })
+    T.eq(color.tile_text_color(3, "classic"), { 249, 246, 242 })
+    T.eq(color.tile_color(1, "classic"), { 238, 228, 218 })
+    T.eq(color.tile_color(11, "classic"), { 237, 194, 46 })
   end)
 
   T.it("tile_color extrapolates beyond defined values", function()
-    local c4096 = color.tile_color(4096, "classic")
-    local c2048 = color.tile_color(2048, "classic")
+    local c4096 = color.tile_color(12, "classic")
+    local c2048 = color.tile_color(11, "classic")
     T.ok(type(c4096) == "table")
     T.not_ok(T.deep_eq(c4096, c2048))
   end)
@@ -189,7 +188,7 @@ T.describe("save/load round trip", function()
     teardown_tmp_save_path()
   end)
 
-  T.it("round trip preserves saved rectangular geometry", function()
+  T.it("rejects saved rectangular geometry", function()
     setup_tmp_save_path()
     local b = {
       { 0, 0, 0, 0, 0 },
@@ -202,12 +201,7 @@ T.describe("save/load round trip", function()
       elapsed_seconds = 0, palette = "classic",
     })
     local loaded = save.load_state()
-    T.eq(loaded.board, b)
-    local effective = board.new_empty_board()
-    T.eq(#effective, 3)
-    T.eq(#effective[1], 5)
-    constants.BOARD_WIDTH, constants.BOARD_HEIGHT = 4, 4
-    geometry.set_board_dimensions(4, 4)
+    T.eq(loaded, nil)
     teardown_tmp_save_path()
   end)
 
@@ -240,6 +234,19 @@ T.describe("save/load round trip", function()
     setup_tmp_save_path()
     local f = io.open(save.SAVE_PATH, "w")
     f:write("not valid json {{{")
+    f:close()
+    T.eq(save.load_state(), nil)
+    teardown_tmp_save_path()
+  end)
+
+  T.it("rejects wrong game ids and non-integer indices", function()
+    setup_tmp_save_path()
+    local f = io.open(save.SAVE_PATH, "w")
+    f:write('{game="other",board={{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}}}')
+    f:close()
+    T.eq(save.load_state(), nil)
+    f = io.open(save.SAVE_PATH, "w")
+    f:write('{game="2048",board={{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,1.5}}}')
     f:close()
     T.eq(save.load_state(), nil)
     teardown_tmp_save_path()

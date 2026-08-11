@@ -97,7 +97,7 @@ T.describe("render: render_frame smoke test (stubbed winapi)", function()
     local captured, old_write = "", io.write
     io.write = function(value) captured = captured .. value end
     render.render_frame({
-      tiles = { { row = 0, col = 0, value = 2 } },
+      tiles = { { row = 0, col = 0, value = 1 } },
       score = 0, best = 0, moves_count = 0, elapsed_seconds = 0,
     })
     io.write = old_write

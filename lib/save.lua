@@ -1,6 +1,5 @@
 -- Save/load persistence for game state as a small Lua table.
 local constants = loader("lib/constants")
-local geometry = loader("lib/geometry")
 
 local M = {}
 
@@ -13,6 +12,17 @@ local function save_dir()
 end
 
 M.SAVE_PATH = save_dir() .. "/2048.save"
+
+local function valid_board(b)
+  if type(b) ~= "table" or #b ~= constants.BOARD_HEIGHT then return false end
+  for _, row in ipairs(b) do
+    if type(row) ~= "table" or #row ~= constants.BOARD_WIDTH then return false end
+    for _, value in ipairs(row) do
+      if type(value) ~= "number" or value < 0 or value % 1 ~= 0 then return false end
+    end
+  end
+  return true
+end
 
 local function serialize(value)
   local kind = type(value)
@@ -34,10 +44,11 @@ local function serialize(value)
 end
 
 function M.save_state(state)
-  if type(state) ~= "table" or type(state.board) ~= "table" then
+  if type(state) ~= "table" or not valid_board(state.board) then
     return false
   end
   local data = {
+    game = "2048",
     board = state.board,
     score = state.score,
     best = state.best,
@@ -66,15 +77,9 @@ function M.load_state()
   if chunk then ok, data = pcall(chunk) end
   if not ok or type(data) ~= "table" then return nil end
 
+  if data.game ~= "2048" then return nil end
   local b = data.board
-  local width = data.board_width or (#b > 0 and #b[1] or 0)
-  local height = data.board_height or #b
-  if type(b) ~= "table" or #b ~= height then return nil end
-  for _, row in ipairs(b) do
-    if type(row) ~= "table" or #row ~= width then return nil end
-  end
-  constants.BOARD_WIDTH, constants.BOARD_HEIGHT = width, height
-  geometry.set_board_dimensions(width, height)
+  if not valid_board(b) then return nil end
   return data
 end
 

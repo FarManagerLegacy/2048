@@ -19,13 +19,13 @@ end
 T.describe("GameSession", function()
   T.it("moves, records history and restores the snapshot", function()
     local b = board.new_empty_board()
-    b[1][1], b[1][2] = 2, 2
+    b[1][1], b[1][2] = 1, 1
     local s = session_mod.new({
       state = state_for(b),
       clock = function() return 100 end,
       spawn_tile = function(target)
-        target[4][4] = 2
-        return { r = 4, c = 4, value = 2 }
+        target[4][4] = 1
+        return { r = 4, c = 4, value = 1 }
       end,
     })
     local result = s:move("left")
@@ -47,13 +47,13 @@ T.describe("GameSession", function()
 
   T.it("settles no-merge moves without blocking later moves", function()
     local b = board.new_empty_board()
-    b[1][1] = 2
+    b[1][1] = 1
     local s = session_mod.new({
       state = state_for(b),
       clock = function() return 0 end,
       spawn_tile = function(target)
-        target[4][4] = 2
-        return { r = 4, c = 4, value = 2 }
+        target[4][4] = 1
+        return { r = 4, c = 4, value = 1 }
       end,
     })
     local result = s:move("right")
@@ -69,13 +69,13 @@ T.describe("GameSession", function()
 
   T.it("restart can be undone", function()
     local b = board.new_empty_board()
-    b[2][2] = 8
+    b[2][2] = 3
     local s = session_mod.new({
       state = state_for(b),
       clock = function() return 10 end,
       spawn_tile = function(target)
-        target[1][1] = 2
-        return { r = 1, c = 1, value = 2 }
+        target[1][1] = 1
+        return { r = 1, c = 1, value = 1 }
       end,
     })
     s:restart()
@@ -87,13 +87,13 @@ T.describe("GameSession", function()
 
   T.it("keeps a merge score pending until the animation settles", function()
     local b = board.new_empty_board()
-    b[1][1], b[1][2] = 2, 2
+    b[1][1], b[1][2] = 1, 1
     local s = session_mod.new({
       state = state_for(b),
       clock = function() return 0 end,
       spawn_tile = function(target)
-        target[4][4] = 2
-        return { r = 4, c = 4, value = 2 }
+        target[4][4] = 1
+        return { r = 4, c = 4, value = 1 }
       end,
     })
 
@@ -110,7 +110,7 @@ T.describe("GameSession", function()
   T.it("pause freezes elapsed time", function()
     local now = 50
     local b = board.new_empty_board()
-    b[1][1] = 2
+    b[1][1] = 1
     local s = session_mod.new({ state = state_for(b), clock = function() return now end })
     now = 53
     T.near(s:current_elapsed(), 8)

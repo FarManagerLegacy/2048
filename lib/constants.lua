@@ -5,7 +5,7 @@ local M = {}
 M.BOARD_SIZE = 4
 M.BOARD_WIDTH = M.BOARD_SIZE
 M.BOARD_HEIGHT = M.BOARD_SIZE
-M.WIN_VALUE = 2048
+M.WIN_INDEX = 11
 M.SPAWN_FOUR_PROBABILITY = 0.1
 -- Shared board geometry defaults. geometry.lua derives cell/gap dimensions.
 M.FONT_ASPECT_CORRECTION = 1.3

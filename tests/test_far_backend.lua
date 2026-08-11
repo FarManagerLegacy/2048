@@ -29,7 +29,7 @@ T.describe("far.backend", function()
   T.it("draws logical tiles into the FAR buffer", function()
     local buffer = backend.create_buffer()
     backend.draw_to_far_buffer(buffer, {
-      tiles = { { row = 0, col = 0, value = 2 } },
+      tiles = { { row = 0, col = 0, value = 1 } },
       palette = "classic",
     })
     T.ok(buffer[1] ~= nil)

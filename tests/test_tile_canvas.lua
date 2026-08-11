@@ -50,7 +50,7 @@ T.describe("tile_canvas", function()
     for _, unit in ipairs({ 2, 3, 4, 5 }) do
       for _, use_half_blocks in ipairs({ true, false }) do
         local case_canvas, case_geometry, case_color = load_geometry_case(unit, use_half_blocks)
-        local buf = case_canvas.rasterize({ { row = 0, col = 0, value = 2 } }, { palette = "classic" })
+          local buf = case_canvas.rasterize({ { row = 0, col = 0, value = 1 } }, { palette = "classic" })
         T.eq(case_geometry.CELL_H, unit)
         T.eq(#buf, case_geometry.BOARD_H)
         local found_text = false
@@ -63,7 +63,7 @@ T.describe("tile_canvas", function()
           end
         end
         T.ok(found_text, "expected tile text for geometry unit " .. unit)
-        T.eq(case_color.tile_color(2, "classic"), { 238, 228, 218 })
+          T.eq(case_color.tile_color(1, "classic"), { 238, 228, 218 })
       end
     end
   end)
@@ -81,19 +81,19 @@ T.describe("tile_canvas", function()
     local empty = color.empty_color("classic")
     local buf = canvas.new_buffer(empty)
     canvas.fill_empty_cells(buf, empty)
-    canvas.draw_tile(buf, { row = 0, col = 0, value = 2 }, empty, "classic")
+    canvas.draw_tile(buf, { row = 0, col = 0, value = 1 }, empty, "classic")
 
     local text_row = math.floor(geometry.OUTER_INSET_Y + math.floor(geometry.CELL_H / 2)) + 1
     local text_col = geometry.GAP_X
       + math.floor((geometry.CELL_W - 1) / 2) + 1
     T.eq(buf[text_row][text_col][1], "2")
-    T.eq(buf[text_row][text_col][3], color.tile_color(2, "classic"))
+    T.eq(buf[text_row][text_col][3], color.tile_color(1, "classic"))
     T.ok(buf[text_row][text_col][4], "tile digits should be bold")
   end)
 
   T.it("uses the active palette for tile text color", function()
     local palette = "amber"
-    local buf = canvas.rasterize({ { row = 0, col = 0, value = 2 } }, {
+    local buf = canvas.rasterize({ { row = 0, col = 0, value = 1 } }, {
       palette = palette,
     })
     local text_row = math.floor(geometry.OUTER_INSET_Y + math.floor(geometry.CELL_H / 2)) + 1
@@ -104,7 +104,7 @@ T.describe("tile_canvas", function()
   T.it("rasterizes empty cells and tiles with palette colors", function()
     local board_bg = color.board_bg_color("classic")
     local empty = color.empty_color("classic")
-    local buf = canvas.rasterize({ { row = 0, col = 0, value = 2 } }, {
+    local buf = canvas.rasterize({ { row = 0, col = 0, value = 1 } }, {
       palette = "classic",
     })
     T.eq(buf[1][1][3], board_bg)
@@ -114,14 +114,14 @@ T.describe("tile_canvas", function()
     local empty_col = geometry.GAP_X + geometry.CELL_W + geometry.GAP_X + 1
     T.eq(buf[text_row][empty_col][3], empty)
     T.eq(buf[text_row][text_col][1], "2")
-    T.eq(buf[text_row][text_col][3], color.tile_color(2, "classic"))
+    T.eq(buf[text_row][text_col][3], color.tile_color(1, "classic"))
   end)
 
   T.it("can leave empty cells at the board background", function()
     local board_bg = color.board_bg_color("classic")
     local old_draw_empty_tiles = constants.DRAW_EMPTY_TILES
     constants.DRAW_EMPTY_TILES = false
-    local buf = canvas.rasterize({ { row = 0, col = 0, value = 2 } }, {
+    local buf = canvas.rasterize({ { row = 0, col = 0, value = 1 } }, {
       palette = "classic",
     })
     constants.DRAW_EMPTY_TILES = old_draw_empty_tiles
@@ -134,8 +134,8 @@ T.describe("tile_canvas", function()
 
   T.it("rasterizes fade against the tinted empty background", function()
     local tint = { 100, 110, 120 }
-    local tile_bg = color.tile_color(2, "classic")
-    local buf = canvas.rasterize({ { row = 0, col = 0, value = 2 } }, {
+    local tile_bg = color.tile_color(1, "classic")
+    local buf = canvas.rasterize({ { row = 0, col = 0, value = 1 } }, {
       palette = "classic",
       board_tint = tint,
       fade = 0.5,
@@ -153,8 +153,8 @@ T.describe("tile_canvas", function()
   T.it("renders a half-row offset tile through both halves of its edge cells", function()
     local empty = color.empty_color("classic")
     local board_bg = color.board_bg_color("classic")
-    local tile = color.tile_color(2, "classic")
-    local buf = canvas.rasterize({ { row = 0.125, col = 0, value = 2 } }, { palette = "classic" })
+    local tile = color.tile_color(1, "classic")
+    local buf = canvas.rasterize({ { row = 0.125, col = 0, value = 1 } }, { palette = "classic" })
     local x = geometry.GAP_X + 1
     local y = geometry.OUTER_INSET_Y + 0.125 * geometry.ROW_STRIDE_Y
     local start_half = util.round(2 * y)
@@ -174,7 +174,7 @@ T.describe("tile_canvas", function()
   T.it("uses whole rows when half blocks are disabled", function()
     local old_use_half_blocks = constants.USE_HALF_BLOCKS
     constants.USE_HALF_BLOCKS = false
-    local buf = canvas.rasterize({ { row = 0, col = 0, value = 2 } }, { palette = "classic" })
+    local buf = canvas.rasterize({ { row = 0, col = 0, value = 1 } }, { palette = "classic" })
     constants.USE_HALF_BLOCKS = old_use_half_blocks
 
     local text_row = util.round(geometry.OUTER_INSET_Y) + math.floor(geometry.CELL_H / 2) + 1
@@ -189,10 +189,10 @@ T.describe("tile_canvas", function()
 
   T.it("keeps adjacent half-row tiles continuous and retains their text colors", function()
     local board_bg = color.board_bg_color("classic")
-    local tile = color.tile_color(2, "classic")
+    local tile = color.tile_color(1, "classic")
     local buf = canvas.rasterize({
-      { row = 0.5, col = 0, value = 2 },
-      { row = 1.25, col = 0, value = 2 },
+      { row = 0.5, col = 0, value = 1 },
+      { row = 1.25, col = 0, value = 1 },
     }, { palette = "classic" })
     local x = geometry.GAP_X + 1
     local first_start = util.round(2 * (geometry.OUTER_INSET_Y + 0.5 * geometry.ROW_STRIDE_Y))

@@ -2,7 +2,7 @@
 local M = {}
 local constants = loader("lib/constants")
 
-M.WIN_VALUE = constants.WIN_VALUE
+M.WIN_INDEX = constants.WIN_INDEX
 
 local function dimensions(board)
   if board then
@@ -70,12 +70,12 @@ local function process_line(values)
     local v, k = values[i].value, values[i].k
     if i + 1 <= n and values[i + 1].value == v then
       local v2, k2 = values[i + 1].value, values[i + 1].k
-      local new_val = v * 2
+      local new_val = v + 1
       local target = #result + 1
       moves[#moves + 1] = { from_k = k, to_k = target, value = v, merged = false }
       moves[#moves + 1] = { from_k = k2, to_k = target, value = v2, merged = true }
       result[#result + 1] = new_val
-      score = score + new_val
+      score = score + 2 ^ new_val
       i = i + 2
     else
       local target = #result + 1
@@ -145,7 +145,7 @@ function M.spawn_tile(board)
   if #empties == 0 then return nil end
   local pick = empties[math.random(#empties)]
   local r, c = pick[1], pick[2]
-  board[r][c] = (math.random() < constants.SPAWN_FOUR_PROBABILITY) and 4 or 2
+  board[r][c] = (math.random() < constants.SPAWN_FOUR_PROBABILITY) and 2 or 1
   return { r = r, c = c, value = board[r][c] }
 end
 
@@ -161,7 +161,7 @@ function M.has_won(board)
   local BOARD_WIDTH, BOARD_HEIGHT = dimensions(board)
   for r = 1, BOARD_HEIGHT do
     for c = 1, BOARD_WIDTH do
-      if board[r][c] >= M.WIN_VALUE then return true end
+      if board[r][c] >= M.WIN_INDEX then return true end
     end
   end
   return false

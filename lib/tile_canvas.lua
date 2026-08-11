@@ -100,7 +100,7 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
     text_row = iy + math.floor(CELL_H / 2)
   end
 
-  local text = tostring(tile.value)
+  local text = tostring(2 ^ tile.value)
   local text_col = ix + math.max(0, math.floor((CELL_W - #text) / 2))
   for i = 1, #text do
     local col = text_col + (i - 1)
