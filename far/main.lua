@@ -115,10 +115,8 @@ local function main()
   end
 
   local function on_timer(handle)
-    if closed then
-      handle.Enabled = false
-      return
-    end
+    handle.Enabled = false
+    if closed then return end
     if active_animation and not active_animation:is_done() then
       active_animation:advance(config.FRAMES_PER_TICK)
       request_board_redraw()
@@ -133,9 +131,8 @@ local function main()
         start_pending_move()
       else
         set_animation_timer_interval()
+        handle.Enabled = true
       end
-    else
-      handle.Enabled = false
     end
   end
 
