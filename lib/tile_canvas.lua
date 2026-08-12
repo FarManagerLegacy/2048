@@ -8,8 +8,6 @@ local color = loader("lib/color")
 local util = loader("lib/util")
 
 local constants = loader("lib/constants")
-local CELL_W, CELL_H = geometry.CELL_W, geometry.CELL_H
-local GAP_X = geometry.GAP_X
 local LOWER_HALF = "\xe2\x96\x84"
 local UPPER_HALF = "\xe2\x96\x80"
 
@@ -49,20 +47,21 @@ function M.new_buffer(bg)
 end
 
 function M.fill_empty_cells(buf, empty_bg)
-  local BOARD_H = geometry.BOARD_H
+  local cell_w, cell_h = geometry.CELL_W, geometry.CELL_H
+  local gap_x, board_h = geometry.GAP_X, geometry.BOARD_H
   for r = 0, constants.BOARD_HEIGHT - 1 do
     for c = 0, constants.BOARD_WIDTH - 1 do
-      local x0 = GAP_X + c * (CELL_W + GAP_X)
+      local x0 = gap_x + c * (cell_w + gap_x)
       local y = geometry.OUTER_INSET_Y + r * geometry.ROW_STRIDE_Y
       if constants.USE_HALF_BLOCKS then
-        local start_half = math.max(0, math.min(BOARD_H * 2 - CELL_H * 2, util.round(2 * y)))
-        for half_y = start_half, start_half + CELL_H * 2 - 1 do
-          for xx = 0, CELL_W - 1 do paint_half(buf, half_y, x0 + xx, empty_bg) end
+        local start_half = math.max(0, math.min(board_h * 2 - cell_h * 2, util.round(2 * y)))
+        for half_y = start_half, start_half + cell_h * 2 - 1 do
+          for xx = 0, cell_w - 1 do paint_half(buf, half_y, x0 + xx, empty_bg) end
         end
       else
-        local iy = math.max(0, math.min(BOARD_H - CELL_H, util.round(y)))
-        for yy = 0, CELL_H - 1 do
-          for xx = 0, CELL_W - 1 do buf[iy + yy + 1][x0 + xx + 1] = { " ", nil, empty_bg } end
+        local iy = math.max(0, math.min(board_h - cell_h, util.round(y)))
+        for yy = 0, cell_h - 1 do
+          for xx = 0, cell_w - 1 do buf[iy + yy + 1][x0 + xx + 1] = { " ", nil, empty_bg } end
         end
       end
     end
@@ -70,7 +69,8 @@ function M.fill_empty_cells(buf, empty_bg)
 end
 
 function M.draw_tile(buf, tile, empty_bg, palette, fade)
-  local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
+  local cell_w, cell_h = geometry.CELL_W, geometry.CELL_H
+  local gap_x, board_w, board_h = geometry.GAP_X, geometry.BOARD_W, geometry.BOARD_H
   local alpha = tile.alpha or 1.0
   local bg = tile.bg or color.tile_color(tile.value, palette)
   if alpha < 1.0 then
@@ -82,29 +82,29 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
     fg = util.blend(fg, { 0, 0, 0 }, fade)
   end
 
-  local x = GAP_X + tile.col * (CELL_W + GAP_X)
+  local x = gap_x + tile.col * (cell_w + gap_x)
   local y = geometry.OUTER_INSET_Y + tile.row * geometry.ROW_STRIDE_Y
-  local ix = math.max(0, math.min(BOARD_W - CELL_W, util.round(x)))
-  local iy = math.max(0, math.min(BOARD_H - CELL_H, util.round(y)))
+  local ix = math.max(0, math.min(board_w - cell_w, util.round(x)))
+  local iy = math.max(0, math.min(board_h - cell_h, util.round(y)))
   local text_row
   if constants.USE_HALF_BLOCKS then
-    local start_half = math.max(0, math.min(BOARD_H * 2 - CELL_H * 2, util.round(2 * y)))
-    for half_y = start_half, start_half + CELL_H * 2 - 1 do
-      for xx = 0, CELL_W - 1 do paint_half(buf, half_y, ix + xx, bg) end
+    local start_half = math.max(0, math.min(board_h * 2 - cell_h * 2, util.round(2 * y)))
+    for half_y = start_half, start_half + cell_h * 2 - 1 do
+      for xx = 0, cell_w - 1 do paint_half(buf, half_y, ix + xx, bg) end
     end
-    text_row = math.floor((start_half + CELL_H) / 2)
+    text_row = math.floor((start_half + cell_h) / 2)
   else
-    for yy = 0, CELL_H - 1 do
-      for xx = 0, CELL_W - 1 do buf[iy + yy + 1][ix + xx + 1] = { " ", nil, bg } end
+    for yy = 0, cell_h - 1 do
+      for xx = 0, cell_w - 1 do buf[iy + yy + 1][ix + xx + 1] = { " ", nil, bg } end
     end
-    text_row = iy + math.floor(CELL_H / 2)
+    text_row = iy + math.floor(cell_h / 2)
   end
 
   local text = tostring(2 ^ tile.value)
-  local text_col = ix + math.max(0, math.floor((CELL_W - #text) / 2))
+  local text_col = ix + math.max(0, math.floor((cell_w - #text) / 2))
   for i = 1, #text do
     local col = text_col + (i - 1)
-    if col >= 0 and col < BOARD_W then
+    if col >= 0 and col < board_w then
       buf[text_row + 1][col + 1] = { text:sub(i, i), fg, bg, true }
     end
   end

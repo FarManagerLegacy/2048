@@ -32,6 +32,11 @@ far = { --luacheck: allow_defined
   InputRecordToName = function(record) return record.name end,
   KeyToName = function(record) return record.name end,
 }
+win = { --luacheck: allow_defined
+  GetConsoleScreenBufferInfo = function()
+    return { WindowTop = 0, WindowBottom = 31 }
+  end,
+}
 bit64 = { bor = function(a, b) return a + b end } --luacheck: allow_defined
 
 local board = {
@@ -51,6 +56,7 @@ local layout = {
     }
   end,
 }
+layout.fit_to_height = layout.calculate
 local real_game_session = root_loader("lib/game_session")
 local stubs = {
   ["far/config"] = config,

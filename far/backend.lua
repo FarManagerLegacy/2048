@@ -15,8 +15,6 @@ local canvas = loader("lib/tile_canvas")
 
 local M = {}
 
-local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
-
 -- ---------------------------------------------------------------------
 -- Buffer creation / color conversion
 -- ---------------------------------------------------------------------
@@ -28,7 +26,7 @@ local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
 -- of truth" and flush it into the FAR buffer on demand, mirroring how
 -- render.lua's make_buffer()/render_buffer() split concerns.
 function M.create_buffer()
-  return far.CreateUserControl(BOARD_W, BOARD_H)
+  return far.CreateUserControl(geometry.BOARD_W, geometry.BOARD_H)
 end
 
 -- FAR stores true-color fields as Windows COLORREF values. COLORREF is
@@ -60,6 +58,7 @@ M._far_color_attributes = far_color_attributes
 -- from a timer -- FAR owns *when* drawing actually happens; we only own
 -- *what* the buffer should contain at that moment.
 function M.draw_to_far_buffer(far_buffer, opts)
+  local board_w, board_h = geometry.BOARD_W, geometry.BOARD_H
   local tiles = opts.tiles
   local board_tint = opts.board_tint
   local fade = opts.fade or 0
@@ -70,10 +69,10 @@ function M.draw_to_far_buffer(far_buffer, opts)
     palette = palette,
   })
 
-  for y = 1, BOARD_H do
-    for x = 1, BOARD_W do
+  for y = 1, board_h do
+    for x = 1, board_w do
       local ch, fg, bg, bold = buf[y][x][1], buf[y][x][2], buf[y][x][3], buf[y][x][4]
-      local idx = (y - 1) * BOARD_W + x
+      local idx = (y - 1) * board_w + x
       far_buffer[idx] = {
         Char = ch,
         Attributes = far_color_attributes(fg or bg, bg, bold),

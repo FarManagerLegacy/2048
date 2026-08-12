@@ -6,6 +6,7 @@ local M = {}
 
 M.CHAR_ASPECT = constants.CHAR_ASPECT
 M.UNIT = constants.GEOMETRY_UNIT
+local board_width, board_height = constants.BOARD_WIDTH, constants.BOARD_HEIGHT
 
 function M.compute_cell_dimensions(unit, char_aspect)
   local h = unit
@@ -21,24 +22,28 @@ function M.compute_vertical_layout(cell_h, gap_y, use_half_blocks)
   return outer_inset_y, cell_h + gap_y
 end
 
-M.CELL_W, M.CELL_H = M.compute_cell_dimensions(M.UNIT, M.CHAR_ASPECT)
-M.GAP_X, M.GAP_Y = 2, 1
-M.OUTER_INSET_Y, M.ROW_STRIDE_Y = M.compute_vertical_layout(M.CELL_H, M.GAP_Y, constants.USE_HALF_BLOCKS)
-
-M.BOARD_W = constants.BOARD_WIDTH * M.CELL_W + (constants.BOARD_WIDTH + 1) * M.GAP_X
-M.BOARD_H = math.ceil(
-  constants.BOARD_HEIGHT * M.CELL_H
-  + (constants.BOARD_HEIGHT - 1) * M.GAP_Y
-  + 2 * M.OUTER_INSET_Y
-)
-
-function M.set_board_dimensions(width, height)
-  M.BOARD_W = width * M.CELL_W + (width + 1) * M.GAP_X
+local function recalculate()
+  M.CELL_W, M.CELL_H = M.compute_cell_dimensions(M.UNIT, M.CHAR_ASPECT)
+  M.GAP_X, M.GAP_Y = 2, 1
+  M.OUTER_INSET_Y, M.ROW_STRIDE_Y = M.compute_vertical_layout(M.CELL_H, M.GAP_Y, constants.USE_HALF_BLOCKS)
+  M.BOARD_W = board_width * M.CELL_W + (board_width + 1) * M.GAP_X
   M.BOARD_H = math.ceil(
-    height * M.CELL_H
-    + (height - 1) * M.GAP_Y
+    board_height * M.CELL_H
+    + (board_height - 1) * M.GAP_Y
     + 2 * M.OUTER_INSET_Y
   )
 end
+
+function M.set_unit(unit)
+  M.UNIT = math.max(2, unit)
+  recalculate()
+end
+
+function M.set_board_dimensions(width, height)
+  board_width, board_height = width, height
+  recalculate()
+end
+
+recalculate()
 
 return M

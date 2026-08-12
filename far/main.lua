@@ -30,7 +30,8 @@ local function main()
   local saved = save.load_state()
   local initial_state = saved and board_mod.compute_status(saved.board) == "" and saved or nil
   local session = game_session.new({ state = initial_state, clock = now })
-  local geom = layout.calculate()
+  local screen = win.GetConsoleScreenBufferInfo() --luacheck: read_globals win.GetConsoleScreenBufferInfo
+  local geom = layout.fit_to_height(screen.WindowBottom - screen.WindowTop + 1, constants.GEOMETRY_UNIT)
   local far_buffer = far_backend.create_buffer()
   local items, item_ids = layout.build_items(F, geom, far_buffer)
 

@@ -40,10 +40,12 @@ T.describe("tile_canvas", function()
   end)
 
   T.it("keeps a vertical gap at even geometry sizes", function()
-    local _, gap_y = geometry.compute_gaps(2)
-    T.eq(gap_y, 1)
-    _, gap_y = geometry.compute_gaps(4)
-    T.eq(gap_y, 1)
+    local original_unit = geometry.UNIT
+    geometry.set_unit(2)
+    T.eq(geometry.GAP_Y, 1)
+    geometry.set_unit(4)
+    T.eq(geometry.GAP_Y, 1)
+    geometry.set_unit(original_unit)
   end)
 
   T.it("tests rendering independently across geometry and flag settings", function()

@@ -21,6 +21,7 @@ function M.calculate()
   local doublebox_y2 = board_y2 + config.INNER_MARGIN_Y + 1
 
   return {
+    unit = geometry.UNIT,
     board_w = board_w, board_h = board_h,
     doublebox_x1 = doublebox_x1, doublebox_x2 = doublebox_x2,
     doublebox_y1 = doublebox_y1, doublebox_y2 = doublebox_y2,
@@ -35,6 +36,19 @@ function M.calculate()
     stats_value_width = stats_value_width,
     stats_total_width = stats_total_width,
   }
+end
+
+function M.fit_to_height(height, preferred_unit)
+  preferred_unit = preferred_unit or geometry.UNIT
+  local maximum_unit = 2
+  for unit = 2, height do
+    geometry.set_unit(unit)
+    local geom = M.calculate()
+    if geom.dialog_h > height then break end
+    maximum_unit = unit
+  end
+  geometry.set_unit(math.min(math.max(2, preferred_unit), maximum_unit))
+  return M.calculate()
 end
 
 function M.build_items(F, geom, far_buffer)
