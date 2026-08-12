@@ -44,6 +44,7 @@ local function main()
   local slide_deadline
   local pending_key
   local average_render_time = constants.ANIM_FRAME_DELAY
+  local view_state = {}
 
   local function set_animation_timer_interval()
     if not timer or not active_animation or active_animation:is_done() then return end
@@ -84,7 +85,7 @@ local function main()
   end
 
   local function update_view()
-    view.update(hdlg, item_ids, geom, session)
+    view_state = view.update(hdlg, item_ids, geom, session, view_state) or view_state
   end
 
   local function save_current()
