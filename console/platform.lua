@@ -12,14 +12,12 @@ end
 
 local M = {}
 local KEY_MAP = {
-  [string.byte("w")] = "up", [string.byte("W")] = "up",
-  [string.byte("a")] = "left", [string.byte("A")] = "left",
-  [string.byte("s")] = "down", [string.byte("S")] = "down",
-  [string.byte("d")] = "right", [string.byte("D")] = "right",
-  [string.byte("u")] = "undo", [string.byte("U")] = "undo",
-  [string.byte("p")] = "palette", [string.byte(" ")] = "pause",
-  [string.byte("r")] = "restart", [string.byte("R")] = "restart",
-  [string.byte("q")] = "quit", [string.byte("Q")] = "quit", [0x1b] = "quit",
+  [0x08] = "undo",
+  [string.byte(" ")] = "pause",
+  [string.byte("n")] = "restart", [string.byte("N")] = "restart",
+  [0x1b] = "quit",
+  [string.byte("<")] = "palette_prev",
+  [string.byte(">")] = "palette_next",
 }
 local WINDOWS_ARROWS = { [0x48] = "up", [0x50] = "down", [0x4b] = "left", [0x4d] = "right" }
 local LINUX_ARROWS = { [0x41] = "up", [0x42] = "down", [0x43] = "right", [0x44] = "left" }

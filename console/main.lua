@@ -125,8 +125,8 @@ local function main()
         end
         session:set_paused(false)
         do_render()
-      elseif key == "palette" then
-        session:cycle_palette()
+      elseif key == "palette_prev" or key == "palette_next" then
+        session:cycle_palette(key == "palette_prev" and -1 or 1)
         save_current()
         do_render()
       elseif key == "undo" then

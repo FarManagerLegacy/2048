@@ -150,15 +150,15 @@ function M.render_frame(opts)
 
   local footer_lines = {
     centered_styled_line({
-      { text = "Arrows/WASD: move", style = dim },
-      { text = "   U: undo", style = dim },
-      { text = "   P: palette", style = dim },
+      { text = "Arrows: move", style = dim },
+      { text = "   Backspace: undo", style = dim },
     }, BOARD_W),
     centered_styled_line({
       { text = "Space: pause", style = dim },
-      { text = "   R: restart", style = dim },
-      { text = "   Q: quit", style = dim },
+      { text = "   N: new game", style = dim },
+      { text = "   Esc: quit", style = dim },
     }, BOARD_W),
+    centered_styled_line({ { text = "< / >: palette", style = dim } }, BOARD_W),
   }
 
   if status_text ~= "" then

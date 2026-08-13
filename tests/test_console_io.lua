@@ -23,11 +23,8 @@ T.describe("console.platform", function()
 
   T.it("maps common game keys", function()
     local expected = {
-      { "w", "up" }, { "W", "up" }, { "a", "left" }, { "A", "left" },
-      { "s", "down" }, { "S", "down" }, { "d", "right" }, { "D", "right" },
-      { "u", "undo" }, { "U", "undo" }, { "p", "palette" },
-      { " ", "pause" }, { "r", "restart" }, { "R", "restart" },
-      { "q", "quit" }, { "Q", "quit" },
+      { " ", "pause" }, { "n", "restart" }, { "N", "restart" },
+      { "<", "palette_prev" }, { ">", "palette_next" },
     }
     for _, item in ipairs(expected) do
       T.eq(platform._decode_key(string.byte(item[1]), function() end), item[2])
