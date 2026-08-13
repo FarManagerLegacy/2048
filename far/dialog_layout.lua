@@ -6,9 +6,7 @@ local M = {}
 
 function M.calculate()
   local board_w, board_h = geometry.BOARD_W, geometry.BOARD_H
-  local stats_label_width = config.STATS_LABEL_WIDTH
-  local stats_value_width = config.STATS_VALUE_WIDTH
-  local stats_total_width = stats_label_width + stats_value_width
+  local stats_total_width = config.STATS_TOTAL_WIDTH
   local board_x1 = config.OUTER_MARGIN_X + config.INNER_MARGIN_X + 1
   local board_y1 = config.OUTER_MARGIN_Y + config.INNER_MARGIN_Y + 1
   local board_x2 = board_x1 + board_w - 1
@@ -32,8 +30,6 @@ function M.calculate()
     board_x1 = board_x1, board_y1 = board_y1,
     board_x2 = board_x2, board_y2 = board_y2,
     stats_x1 = stats_x1, stats_x2 = stats_x2,
-    stats_label_width = stats_label_width,
-    stats_value_width = stats_value_width,
     stats_total_width = stats_total_width,
   }
 end
@@ -62,55 +58,74 @@ function M.build_items(F, geom, far_buffer)
     "DI_DOUBLEBOX", geom.doublebox_x1, geom.doublebox_y1,
     geom.doublebox_x2, geom.doublebox_y2, 0, 0, 0, 0, "2048",
   })
+
+  add_item("time", {
+    "DI_TEXT", geom.doublebox_x2 - 6, geom.doublebox_y1,
+    geom.doublebox_x2 - 6, geom.doublebox_y1, 0, 0, 0, 0, "",
+  })
+  add_item("pause_button", {
+    "DI_BUTTON", geom.doublebox_x2 - 4, geom.doublebox_y1,
+    geom.doublebox_x2 - 2, geom.doublebox_y1,
+    0, 0, 0, F.DIF_BTNNOCLOSE + F.DIF_NOFOCUS + F.DIF_NOBRACKETS, " ▷ ",
+  })
+
+  local footer_y = geom.doublebox_y2
+  local score_x = geom.doublebox_x1 + 2
+  local best_x = geom.board_x2 + 2
+  add_item("score_label", { "DI_TEXT", score_x, footer_y, best_x - 1, footer_y, 0, 0, 0, 0, "" })
+  add_item("score", { "DI_TEXT", score_x + 7, footer_y, best_x - 2, footer_y, 0, 0, 0, 0, "" })
+  add_item("best_label", { "DI_TEXT", best_x, footer_y, geom.doublebox_x2 - 1, footer_y, 0, 0, 0, 0, "" })
+  add_item("best", { "DI_TEXT", best_x + 6, footer_y, geom.doublebox_x2 - 2, footer_y, 0, 0, 0, 0, "" })
+
   add_item("usercontrol", {
     "DI_USERCONTROL", geom.board_x1, geom.board_y1,
-    geom.board_x2, geom.board_y2, far_buffer, 0, 0, 0, "",
+    geom.board_x2, geom.board_y2, far_buffer, 0, F.DIF_FOCUS + (F.DIF_HOMEITEM or 0), 0, "",
   })
 
   local stats_y = geom.board_y1
-  for index, name in ipairs({ "score", "best", "moves" }) do
-    local y = stats_y + index - 1
-    add_item(name, {
-      "DI_TEXT", geom.stats_x1, y,
-      geom.stats_x1 + geom.stats_total_width - 1, y, 0, 0, 0, 0, "",
-    })
-  end
-
-  local action_y = stats_y + 3
-  for index, button in ipairs({ { "undo_button", "&Undo" }, { "new_button", "&New" } }) do
-    local y = action_y + index - 1
-    add_item(button[1], {
-      "DI_BUTTON", geom.stats_x1, y,
-    geom.stats_x1 + config.BUTTON_WIDTH - 1, y,
-    0, 0, 0, F.DIF_BTNNOCLOSE, button[2],
-    })
-  end
-
-  local time_y = action_y + 3
-  add_item("time", {
-    "DI_TEXT", geom.stats_x1, time_y,
-    geom.stats_x1 + geom.stats_total_width - 1, time_y, 0, 0, 0, 0, "",
+  add_item("moves_label", {
+    "DI_TEXT", geom.stats_x1, stats_y,
+    geom.stats_x1 + 5, stats_y, 0, 0, 0, 0, "Moves:",
   })
-  local pause_y = time_y + 1
-  add_item("pause_button", {
-    "DI_BUTTON", geom.stats_x1, pause_y,
-    geom.stats_x1 + config.BUTTON_WIDTH - 1, pause_y,
-    0, 0, 0, F.DIF_BTNNOCLOSE, "&Pause",
+  add_item("undo_button", {
+    "DI_BUTTON", geom.stats_x1 + 6, stats_y,
+    geom.stats_x1 + 9, stats_y,
+    0, 0, 0, F.DIF_BTNNOCLOSE + F.DIF_NOBRACKETS, " &↺ ",
+  })
+  add_item("moves", {
+    "DI_TEXT", geom.stats_x1 + 9, stats_y,
+    geom.stats_x1 + geom.stats_total_width - 1, stats_y, 0, 0, 0, 0, "",
+  })
+
+  local status_y = stats_y
+  add_item("status", {
+    "DI_TEXT", geom.stats_x1, status_y,
+    geom.stats_x1 + geom.stats_total_width - 1, status_y, 0, 0, 0, 0, "",
+  })
+  add_item("new_button", {
+    "DI_BUTTON", geom.stats_x1, status_y + 1,
+    geom.stats_x1 + 2, status_y + 1,
+    0, 0, 0, F.DIF_BTNNOCLOSE, "&New",
   })
 
   local switch_y = geom.board_y2
-  add_item("status", {
-    "DI_TEXT", geom.stats_x1, pause_y + 2,
-    geom.stats_x1 + geom.stats_total_width - 1, pause_y + 2, 0, 0, 0, 0, "",
-  })
   add_item("palette", {
-    "DI_TEXT", geom.stats_x1, switch_y - 1,
-    geom.stats_x1 + geom.stats_total_width - 1, switch_y - 1, 0, 0, 0, 0, "",
+    "DI_TEXT", geom.stats_x1 + 1, switch_y,
+    geom.stats_x1 + geom.stats_total_width - 2, switch_y, 0, 0, 0, 0, "",
   })
-  add_item("switch_button", {
+  add_item("palette_prev_button", {
     "DI_BUTTON", geom.stats_x1, switch_y,
-    geom.stats_x1 + config.BUTTON_WIDTH - 1, switch_y,
-    0, 0, 0, F.DIF_BTNNOCLOSE, "&Switch",
+    geom.stats_x1, switch_y,
+    0, 0, 0, F.DIF_BTNNOCLOSE + F.DIF_NOBRACKETS, "&<",
+  })
+  add_item("palette_label", {
+    "DI_TEXT", geom.stats_x1, switch_y - 1,
+    geom.stats_x1 + geom.stats_total_width - 1, switch_y - 1, 0, 0, 0, 0, "&Palette:",
+  })
+  add_item("palette_next_button", {
+    "DI_BUTTON", geom.stats_x1 + geom.stats_total_width - 1, switch_y,
+    geom.stats_x1 + geom.stats_total_width - 1, switch_y,
+    0, 0, 0, F.DIF_BTNNOCLOSE + F.DIF_NOBRACKETS, "&>",
   })
   return items, ids
 end

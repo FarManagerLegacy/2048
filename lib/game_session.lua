@@ -137,7 +137,6 @@ function Session:settle_score()
   local gained = self.pending_score
   if gained > 0 then
     self.score = self.score + gained
-    self.best = math.max(self.best, self.score)
     self.pending_score = 0
   end
   return gained
@@ -150,6 +149,7 @@ end
 function Session:restart()
   if self:has_pending_score() then return false end
   self:_push_history()
+  self.best = math.max(self.best, self.score)
   self.board = self.new_game and self.new_game() or default_new_game(self.spawn_tile)
   self.score = 0
   self.pending_score = 0
@@ -191,8 +191,8 @@ function Session:set_paused(paused)
   end
 end
 
-function Session:cycle_palette()
-  self.palette = color.cycle_palette(self.palette)
+function Session:cycle_palette(step)
+  self.palette = color.cycle_palette(self.palette, step)
   return self.palette
 end
 
@@ -200,7 +200,7 @@ function Session:snapshot()
   return {
     board = board_mod.copy_board(self.board),
     score = self.score,
-    best = self.best,
+    best = math.max(self.best, self.score),
     moves_count = self.moves_count,
     status = self.status,
     palette = self.palette,

@@ -5,10 +5,16 @@ local clock = 0
 local animation_timer
 local dialog_proc
 local move_directions = {}
+local force_terminal
+local redraw_seconds = 0
+local animation_frame_intervals = {}
+local synchro_callback
 local F = {
-  DN_INITDIALOG = "init", DN_CONTROLINPUT = "input", DN_KEY = "key",
+  -- DN_KEY and far.KeyToName are far2m-only; current FAR uses DN_CONTROLINPUT.
+  DN_INITDIALOG = "init", DN_CONTROLINPUT = "input",
   DN_DRAWDLGITEM = "draw", DN_BTNCLICK = "click", DN_GOTFOCUS = "focus",
   DN_CTLCOLORDLGITEM = "color", DN_CLOSE = "close",
+  KEY_EVENT = "key", FOCUS_EVENT = "focus", ACTL_SYNCHRO = "synchro",
 }
 
 far = { --luacheck: allow_defined
@@ -20,7 +26,11 @@ far = { --luacheck: allow_defined
     return timer
   end,
   Dialog = function(_, _, _, _, _, _, _, _, callback)
-    local hdlg = { ShowItem = function() end }
+    local hdlg = {
+      ShowItem = function()
+        clock = clock + redraw_seconds
+      end,
+    }
     dialog_proc = callback
     callback(hdlg, F.DN_INITDIALOG, 0, nil)
   end,
@@ -29,8 +39,10 @@ far = { --luacheck: allow_defined
       dialog_proc({}, F.DN_DRAWDLGITEM, item, nil)
     end
   end,
+  AdvControl = function(command, callback)
+    if command == F.ACTL_SYNCHRO then synchro_callback = callback end
+  end,
   InputRecordToName = function(record) return record.name end,
-  KeyToName = function(record) return record.name end,
 }
 win = { --luacheck: allow_defined
   GetConsoleScreenBufferInfo = function()
@@ -51,19 +63,27 @@ local layout = {
   calculate = function() return { dialog_w = 1, dialog_h = 1 } end,
   build_items = function()
     return {}, {
-      usercontrol = 1, new_button = 2, switch_button = 3, undo_button = 4,
-      pause_button = 5, status = 6
+      usercontrol = 1, new_button = 2, undo_button = 4,
+      pause_button = 5, auto_button = 6, status = 7,
+      palette_prev_button = 8, palette_next_button = 9,
     }
   end,
 }
 layout.fit_to_height = layout.calculate
 local real_game_session = root_loader("lib/game_session")
+local real_animation_fsm = root_loader("lib/animation_fsm")
 local stubs = {
   ["far/config"] = config,
   ["far/backend"] = { create_buffer = function() return {} end, draw_to_far_buffer = function() end },
   ["far/dialog_layout"] = layout,
   ["far/dialog_view"] = { update = function() end, apply_status_colors = function() end },
   ["lib/status_effect"] = { compute = function() return {} end },
+  ["lib/animation_fsm"] = setmetatable({
+    new_move_animation = function(...)
+      animation_frame_intervals[#animation_frame_intervals + 1] = select(6, ...)
+      return real_animation_fsm.new_move_animation(...)
+    end,
+  }, { __index = real_animation_fsm }),
   ["lib/game_session"] = {
     new = function(options)
       local session = real_game_session.new(options)
@@ -72,6 +92,7 @@ local stubs = {
         move_directions[#move_directions + 1] = direction
         return move(self, direction)
       end
+      if force_terminal then session.status = "game_over" end
       return session
     end,
   },
@@ -93,13 +114,13 @@ T.describe("far timer input", function()
     setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
     local main = chunk()
     main()
-    T.eq(dialog_proc({}, F.DN_KEY, 0, { name = "right" }), true)
+    T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, KeyDown = true, name = "right" }), true)
 
     clock = 0.500
     animation_timer.callback(animation_timer.timer)
 
-    T.eq(dialog_proc({}, F.DN_KEY, 0, { name = "left" }), true)
-    T.eq(dialog_proc({}, F.DN_KEY, 0, { name = "right" }), true)
+    T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, KeyDown = true, name = "left" }), true)
+    T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, KeyDown = true, name = "right" }), true)
 
     config.FRAMES_PER_TICK = 100
     for _ = 1, 10 do
@@ -116,6 +137,26 @@ T.describe("far timer input", function()
     end
     T.eq(animation_timer.timer.Enabled, false)
   end)
+
+  T.it("uses full redraw time to pace the next animation", function()
+    animation_timer, redraw_seconds = nil, 0.1
+    animation_frame_intervals = {}
+    config.FRAMES_PER_TICK = 100
+    local chunk = assert(loadfile("far/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    main()
+
+    dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "right" })
+    for _ = 1, 10 do
+      if not animation_timer.timer.Enabled then break end
+      animation_timer.callback(animation_timer.timer)
+    end
+    dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "left" })
+    T.ok(animation_frame_intervals[2] > animation_frame_intervals[1])
+    redraw_seconds = 0
+  end)
+
 end)
 
 T.summary_and_exit()

@@ -122,7 +122,7 @@ M._PALETTE_NAMES = {
   "gradient", "ocean", "amber", "rose", "sky"
 }
 
-function M.cycle_palette(current)
+function M.cycle_palette(current, step)
   local names = M._PALETTE_NAMES
   current = current or "classic"
   local idx
@@ -130,7 +130,7 @@ function M.cycle_palette(current)
     if name == current then idx = i break end
   end
   idx = idx or 1
-  local next_idx = (idx % #names) + 1
+  local next_idx = ((idx - 1 + (step or 1)) % #names) + 1
   local next_name = names[next_idx]
   return next_name
 end

@@ -1,7 +1,6 @@
 -- FAR frontend. Game state is shared with the console through game_session;
 -- this file owns FAR lifecycle, timers and event dispatch only.
 local F = far.Flags
-local bor = bit64.bor
 
 local isMain = not loader
 loader = loader or dofile("loader.lua")() --luacheck: globals loader
@@ -113,7 +112,7 @@ local function main()
   local function start_pending_move()
     local key = pending_key
     pending_key = nil
-    if key and session.status == "" and not session.paused then begin_move(key) end
+    if session.status == "" and not session.paused then begin_move(key) end
   end
 
   local function on_timer(handle)
@@ -161,9 +160,9 @@ local function main()
     update_view()
   end
 
-  local function cycle_palette()
+  local function cycle_palette(step)
     if active_animation then return end
-    session:cycle_palette()
+    session:cycle_palette(step)
     save_current()
     update_view()
   end
@@ -199,10 +198,11 @@ local function main()
 
   local button_actions = {
     [item_ids.new_button] = reset_to_new_game,
-    [item_ids.switch_button] = cycle_palette,
     [item_ids.undo_button] = undo_last_move,
     [item_ids.pause_button] = toggle_pause,
   }
+  button_actions[item_ids.palette_prev_button] = function() cycle_palette(-1) end
+  button_actions[item_ids.palette_next_button] = cycle_palette
 
   local function draw_key_marker(key)
     local dialog_rect = hdlg:GetDlgRect()
@@ -228,10 +228,13 @@ local function main()
       end
       return false
     end
-    if is_arrow then
-      if session.status == "" and not session.paused then
-        if begin_move(key) then return true end
-      end
+    if is_arrow and session.status == "" then
+      if session.paused then toggle_pause() end
+      if begin_move(key) then return true end
+    elseif key == "undo" and session:can_undo() then
+      if session.paused then toggle_pause() end
+      undo_last_move()
+      return true
     elseif key == "pause" and current_focus == item_ids.usercontrol and session.status == "" then
       toggle_pause()
       return true
@@ -244,6 +247,7 @@ local function main()
     return ({
       left = "left", up = "up", right = "right", down = "down",
       space = "pause",
+      bs = "undo",
     })[name]
   end
 
@@ -296,16 +300,38 @@ local function main()
     end
 
     if msg == F.DN_CTLCOLORDLGITEM and param1 == item_ids.status then
-      return view.apply_status_colors(bor,
+      return view.apply_status_colors(
         session:has_pending_score() and "" or session.status, param2)
     end
 
-    if not F.DN_KEY and msg == F.DN_CONTROLINPUT and param2.KeyDown ~= false then
-      return dispatch_key(normalize_key(far.InputRecordToName(param2))) or nil
+    if msg == F.DN_CTLCOLORDLGITEM and param1 == item_ids.time then
+      local disabled = far.AdvControl(F.ACTL_GETCOLOR, far.Colors.COL_DIALOGDISABLED)
+      return view.apply_disabled_colors(param2, disabled)
     end
 
-    if F.DN_KEY and msg == F.DN_KEY then
-      return dispatch_key(normalize_key(far.KeyToName(param2))) or nil --luacheck: read_globals far.KeyToName
+    if msg == F.DN_CTLCOLORDLGITEM and (
+      param1 == item_ids.score or param1 == item_ids.score_label
+      or param1 == item_ids.best or param1 == item_ids.best_label
+    ) then
+      local disabled = far.AdvControl(F.ACTL_GETCOLOR, far.Colors.COL_DIALOGDISABLED)
+      return view.apply_footer_colors(
+        param1 == item_ids.best and session.score + session.pending_score > session.best,
+        param2, disabled)
+    end
+
+    if msg == (F.DN_CONTROLINPUT or F.DN_KEY) then
+      if F.DN_CONTROLINPUT and param2.EventType == F.FOCUS_EVENT then
+        if param2.SetFocus == false and not auto_play then
+          session:set_paused(true)
+          save_current()
+          update_view()
+        end
+        return nil
+      end
+      if F.DN_CONTROLINPUT and param2.EventType ~= F.KEY_EVENT then return nil end
+
+      local key = (far.KeyToName or far.InputRecordToName)(param2) --luacheck: read_globals far.KeyToName
+      return dispatch_key(normalize_key(key)) or nil
     end
 
     if msg == F.DN_CLOSE then

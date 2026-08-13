@@ -1,11 +1,20 @@
 -- FAR dialog text and status presentation.
 local util = loader("lib/util")
 local F = far.Flags
+local bor = bit64.bor
 
 local M = {}
 
-local function make_stat_label(label, width)
-  return label .. string.rep(" ", math.max(0, width - #label))
+local function footer_label(name, value)
+  return "╡" .. name .. ": " .. string.rep(" ", #value) .. "╞"
+end
+
+local function fit_item(hdlg, id, x, y, width)
+  if hdlg.send then
+    hdlg:send("DM_SETITEMPOSITION", id, {
+      Left = x, Top = y, Right = x + width - 1, Bottom = y,
+    })
+  end
 end
 
 function M.format_status(status)
@@ -24,23 +33,65 @@ function M.update(hdlg, ids, geom, session, state)
       state[id] = text
     end
   end
-  local width = geom.stats_label_width
-  local score_text = string.format("%d", session.score)
-  if session:has_pending_score() then
-    score_text = score_text .. string.format(" &+%d", session.pending_score)
-  end
-  set_text(ids.score, make_stat_label("Score: ", width) .. score_text)
-  set_text(ids.best, make_stat_label("Best: ", width) .. string.format("%d", session.best))
-  set_text(ids.moves, make_stat_label("Moves: ", width) .. string.format("%d", session.moves_count))
-  set_text(ids.time, make_stat_label("Time: ", width) .. util.format_duration(session:current_elapsed()))
-  set_text(ids.palette, "Palette: " .. session.palette)
-  set_text(ids.pause_button, session.paused and "Un&pause" or "&Pause")
+  local score_value = string.format("%d", session.score + session.pending_score)
+  local score_visible = score_value ~= "0"
+  set_text(ids.score_label, footer_label("Score", score_value))
+  set_text(ids.score, score_value)
+  local best_value = string.format("%d", session.best)
+  local best_visible = best_value ~= "0"
+  set_text(ids.best_label, footer_label("Best", best_value))
+  set_text(ids.best, best_value)
+  set_text(ids.moves, string.format("%d", session.moves_count))
+  local time_value = " " .. util.format_duration(session:current_elapsed())
+  set_text(ids.time, time_value)
+  local palette_value = session.palette
+  set_text(ids.palette, palette_value)
+  set_text(ids.pause_button, session.paused and " ▶ " or " &▶ ")
   local undo_enabled = session:can_undo()
   local undo_changed = state.undo_enabled ~= undo_enabled
   state.undo_enabled = undo_enabled
   set_text(ids.status, session:has_pending_score() and "" or M.format_status(session.status))
-  if #text_changes > 0 or undo_changed then
+  local score_visibility_changed = state.score_visible ~= score_visible
+  state.score_visible = score_visible
+  local best_visibility_changed = state.best_visible ~= best_visible
+  state.best_visible = best_visible
+  local footer_key = table.concat({
+    score_visible and score_value or "", best_visible and best_value or "",
+  }, "\0")
+  local footer_changed = state.footer_key ~= footer_key
+  state.footer_key = footer_key
+  local palette_changed = state.palette_value ~= session.palette
+  state.palette_value = session.palette
+  if #text_changes > 0 or undo_changed or score_visibility_changed or
+      best_visibility_changed or footer_changed or palette_changed then
     hdlg:EnableRedraw(false)
+    if score_visibility_changed then hdlg:ShowItem(ids.score, score_visible) end
+    if score_visibility_changed then
+      hdlg:ShowItem(ids.score_label, score_visible)
+    end
+    if best_visibility_changed then
+      hdlg:ShowItem(ids.best, best_visible)
+      hdlg:ShowItem(ids.best_label, best_visible)
+    end
+    if footer_changed then
+      local y = geom.doublebox_y2
+      if score_visible then
+        local score_x = geom.doublebox_x1 + 2
+        fit_item(hdlg, ids.score_label, score_x, y, #score_value + 9)
+        fit_item(hdlg, ids.score, score_x + 8, y, #score_value)
+      end
+      if best_visible then
+        local best_x = geom.board_x2 + 2
+        fit_item(hdlg, ids.best_label, best_x, y, #best_value + 8)
+        fit_item(hdlg, ids.best, best_x + 7, y, #best_value)
+      end
+    end
+    fit_item(hdlg, ids.time, geom.doublebox_x2 - 4 - #time_value, geom.doublebox_y1, #time_value)
+    if palette_changed then
+      local palette_width = #palette_value
+      local palette_x = geom.stats_x1 + math.floor((geom.stats_total_width - palette_width) / 2)
+      fit_item(hdlg, ids.palette, palette_x, geom.board_y2, palette_width)
+    end
     for _, change in ipairs(text_changes) do hdlg:SetText(change[1], change[2]) end
     if undo_changed then hdlg:Enable(ids.undo_button, undo_enabled) end
     hdlg:EnableRedraw(true)
@@ -48,7 +99,7 @@ function M.update(hdlg, ids, geom, session, state)
   return state
 end
 
-function M.apply_status_colors(bor, status, colors)
+function M.apply_status_colors(status, colors)
   local base_flags = colors[1].Flags
   if status == "game_over" then
     colors[1].ForegroundColor = 4
@@ -58,6 +109,19 @@ function M.apply_status_colors(bor, status, colors)
     return
   end
   colors[1].Flags = bor(base_flags, F.FCF_FG_INDEX, F.FCF_FG_BLINK)
+  return colors
+end
+
+function M.apply_disabled_colors(colors, disabled)
+  for key, value in pairs(disabled) do colors[1][key] = value end
+  return colors
+end
+
+function M.apply_footer_colors(exceeded, colors, disabled)
+  for key, value in pairs(disabled) do colors[1][key] = value end
+  if exceeded then
+    colors[1].Flags = bor(colors[1].Flags, F.FCF_FG_STRIKEOUT)
+  end
   return colors
 end
 
