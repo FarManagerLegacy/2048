@@ -107,6 +107,28 @@ T.describe("GameSession", function()
     T.eq(s:settle_score(), 0)
   end)
 
+  T.it("keeps best fixed during a game and promotes it on restart", function()
+    local b = board.new_empty_board()
+    b[1][1], b[1][2] = 1, 1
+    local state = state_for(b)
+    state.score, state.best = 20, 20
+    local s = session_mod.new({
+      state = state,
+      clock = function() return 0 end,
+      spawn_tile = function(target)
+        target[4][4] = 1
+        return { r = 4, c = 4, value = 1 }
+      end,
+    })
+    s:move("left")
+    s:settle_score()
+    T.eq(s.score, 24)
+    T.eq(s.best, 20)
+    T.eq(s:snapshot().best, 24)
+    s:restart()
+    T.eq(s.best, 24)
+  end)
+
   T.it("pause freezes elapsed time", function()
     local now = 50
     local b = board.new_empty_board()

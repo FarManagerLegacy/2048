@@ -18,6 +18,8 @@ local KEY_MAP = {
   [0x1b] = "quit",
   [string.byte("<")] = "palette_prev",
   [string.byte(">")] = "palette_next",
+  [string.byte("b")] = "best_move", [string.byte("B")] = "best_move",
+  [string.byte("a")] = "auto_play", [string.byte("A")] = "auto_play",
 }
 local WINDOWS_ARROWS = { [0x48] = "up", [0x50] = "down", [0x4b] = "left", [0x4d] = "right" }
 local LINUX_ARROWS = { [0x41] = "up", [0x42] = "down", [0x43] = "right", [0x44] = "left" }

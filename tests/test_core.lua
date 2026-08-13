@@ -64,6 +64,28 @@ T.describe("move mechanics", function()
   end)
 end)
 
+T.describe("spawn outcomes", function()
+  T.it("enumerates every spawn without changing the source board", function()
+    local b = { { 0, 0 } }
+    local outcomes = board.spawn_outcomes(b)
+    local rank_one_probability, rank_two_probability = 0, 0
+    T.eq(#outcomes, 4)
+    T.eq(b, { { 0, 0 } })
+    for _, outcome in ipairs(outcomes) do
+      local changed_cells = 0
+      for c = 1, 2 do if outcome.state[1][c] ~= 0 then changed_cells = changed_cells + 1 end end
+      T.eq(changed_cells, 1)
+      if outcome.state[1][1] == 1 or outcome.state[1][2] == 1 then
+        rank_one_probability = rank_one_probability + outcome.probability
+      else
+        rank_two_probability = rank_two_probability + outcome.probability
+      end
+    end
+    T.near(rank_one_probability, 0.9)
+    T.near(rank_two_probability, 0.1)
+  end)
+end)
+
 T.describe("end-state detection", function()
   T.it("reported stuck board is detected as game_over", function()
     local b = {

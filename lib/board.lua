@@ -3,6 +3,11 @@ local M = {}
 local constants = loader("lib/constants")
 
 M.WIN_INDEX = constants.WIN_INDEX
+M.DIRECTIONS = { "up", "down", "left", "right" }
+M.SPAWN_DISTRIBUTION = {
+  { value = 1, probability = 1 - constants.SPAWN_FOUR_PROBABILITY },
+  { value = 2, probability = constants.SPAWN_FOUR_PROBABILITY },
+}
 
 local function dimensions(board)
   if board then
@@ -132,7 +137,7 @@ function M.move_board(board, direction)
   return new_board, all_moves, total_score, changed
 end
 
-function M.spawn_tile(board)
+local function empty_cells(board)
   local BOARD_WIDTH, BOARD_HEIGHT = dimensions(board)
   local empties = {}
   for r = 1, BOARD_HEIGHT do
@@ -142,15 +147,37 @@ function M.spawn_tile(board)
       end
     end
   end
+  return empties
+end
+
+function M.spawn_outcomes(board)
+  local empties, outcomes = empty_cells(board), {}
+  for _, cell in ipairs(empties) do
+    for _, spawn in ipairs(M.SPAWN_DISTRIBUTION) do
+      local state = M.copy_board(board)
+      state[cell[1]][cell[2]] = spawn.value
+      outcomes[#outcomes + 1] = { state = state, probability = spawn.probability / #empties }
+    end
+  end
+  return outcomes
+end
+
+function M.spawn_tile(board)
+  local empties = empty_cells(board)
   if #empties == 0 then return nil end
   local pick = empties[math.random(#empties)]
   local r, c = pick[1], pick[2]
-  board[r][c] = (math.random() < constants.SPAWN_FOUR_PROBABILITY) and 2 or 1
+  local roll, total, value = math.random(), 0, M.SPAWN_DISTRIBUTION[#M.SPAWN_DISTRIBUTION].value
+  for _, spawn in ipairs(M.SPAWN_DISTRIBUTION) do
+    total = total + spawn.probability
+    if roll < total then value = spawn.value; break end
+  end
+  board[r][c] = value
   return { r = r, c = c, value = board[r][c] }
 end
 
 function M.any_move_possible(board)
-  for _, d in ipairs({ "left", "right", "up", "down" }) do
+  for _, d in ipairs(M.DIRECTIONS) do
     local _, _, _, changed = M.move_board(board, d)
     if changed then return true end
   end

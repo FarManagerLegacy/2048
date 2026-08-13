@@ -7,6 +7,10 @@ M.BOARD_WIDTH = M.BOARD_SIZE
 M.BOARD_HEIGHT = M.BOARD_SIZE
 M.WIN_INDEX = 11
 M.SPAWN_FOUR_PROBABILITY = 0.1
+
+M.AUTO_PLAY_MIN_MOVE_DELAY = 0.500
+--M.SKIP_ANIMATIONS = true
+
 -- Shared board geometry defaults. geometry.lua derives cell/gap dimensions.
 M.FONT_ASPECT_CORRECTION = 1.3
 M.TILE_ASPECT = 1

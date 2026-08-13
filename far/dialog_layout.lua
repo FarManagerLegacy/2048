@@ -97,7 +97,19 @@ function M.build_items(F, geom, far_buffer)
     geom.stats_x1 + geom.stats_total_width - 1, stats_y, 0, 0, 0, 0, "",
   })
 
-  local status_y = stats_y
+  local action_y = stats_y
+  add_item("best_button", {
+    "DI_BUTTON", geom.stats_x1, action_y + 1,
+    geom.stats_x1 + 8, action_y + 1,
+    0, 0, 0, F.DIF_BTNNOCLOSE, "&Best Move",
+  })
+  add_item("auto_button", {
+    "DI_BUTTON", geom.stats_x1, action_y + 2,
+    geom.stats_x1 + 8, action_y + 2,
+    0, 0, 0, F.DIF_BTNNOCLOSE, "&Auto Play",
+  })
+
+  local status_y = action_y + 3
   add_item("status", {
     "DI_TEXT", geom.stats_x1, status_y,
     geom.stats_x1 + geom.stats_total_width - 1, status_y, 0, 0, 0, 0, "",

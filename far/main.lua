@@ -16,6 +16,7 @@ local save = loader("lib/save")
 local layout = loader("far/dialog_layout")
 local view = loader("far/dialog_view")
 local status_effect = loader("lib/status_effect")
+local ai = loader("lib/ai")
 local arrow_glyphs = { up = "↑", down = "↓", left = "←", right = "→" }
 
 local function main()
@@ -42,6 +43,10 @@ local function main()
   local slide_deadline
   local pending_key
   local average_render_time = constants.ANIM_FRAME_DELAY
+  local auto_play = false
+  local auto_play_has_moved = false
+  local auto_direction
+  local auto_ready_at
   local view_state = {}
 
   local function set_animation_timer_interval()
@@ -83,18 +88,28 @@ local function main()
   end
 
   local function update_view()
-    view_state = view.update(hdlg, item_ids, geom, session, view_state) or view_state
+    view_state = view.update(hdlg, item_ids, geom, session, auto_play, view_state) or view_state
   end
 
   local function save_current()
     return save.save_state(session:snapshot())
   end
 
+  local schedule_auto_move
+
   local function begin_move(direction)
     if active_animation then return end
     local result = session:move(direction)
     if not result.changed then return false end
     sync_clock_timer_interval()
+    if constants.SKIP_ANIMATIONS then
+      session:settle_score()
+      save_current()
+      update_view()
+      request_board_redraw()
+      if auto_play then schedule_auto_move() end
+      return true
+    end
     active_animation = animation_fsm.new_move_animation(
       result.new_board, result.moves, result.spawned_board, result.spawned,
       session.palette, average_render_time
@@ -105,6 +120,55 @@ local function main()
     set_animation_timer_interval()
     if timer then timer.Enabled = true end
     return true
+  end
+
+  local function set_auto_play(enabled)
+    if auto_play == enabled then return end
+    auto_play = enabled
+    auto_direction, auto_ready_at = nil, nil
+    if enabled then auto_play_has_moved = false end
+    update_view()
+  end
+
+  local function start_ai_move()
+    if active_animation or session.paused then return false end
+    if session.status ~= "" then
+      set_auto_play(false)
+      return false
+    end
+    local direction = auto_direction
+    if direction then
+      auto_direction, auto_ready_at = nil, nil
+    else
+      local started = now()
+      direction = ai.find_best_move(session.board, "AI_AUTOPLAY")
+      if not direction then
+        set_auto_play(false)
+        return false
+      end
+      local ready_at = started + constants.AUTO_PLAY_MIN_MOVE_DELAY
+      if auto_play_has_moved and now() < ready_at then
+        auto_direction, auto_ready_at = direction, ready_at
+        if clock_timer then
+          clock_timer.Interval = math.max(1, math.floor((ready_at - now()) * 1000 + 0.5))
+        end
+        return true
+      end
+    end
+    local moved = begin_move(direction)
+    if moved then auto_play_has_moved = true end
+    return moved
+  end
+
+  local function best_move()
+    local direction = ai.find_best_move(session.board, "AI_BEST_MOVE")
+    return direction and begin_move(direction) or false
+  end
+
+  schedule_auto_move = function()
+    far.AdvControl(F.ACTL_SYNCHRO, function()
+      if not closed and auto_play then start_ai_move() end
+    end)
   end
 
   local function start_pending_move()
@@ -127,7 +191,14 @@ local function main()
         sync_clock_timer_interval()
         save_current()
         update_view()
-        start_pending_move()
+        if auto_play and session.status == "game_over" then
+          pending_key = nil
+          set_auto_play(false)
+        elseif auto_play then
+          schedule_auto_move()
+        elseif pending_key then
+          start_pending_move()
+        end
       else
         set_animation_timer_interval()
         handle.Enabled = true
@@ -195,6 +266,7 @@ local function main()
   }
   button_actions[item_ids.palette_prev_button] = function() cycle_palette(-1) end
   button_actions[item_ids.palette_next_button] = cycle_palette
+  if item_ids.best_button then button_actions[item_ids.best_button] = best_move end
 
   local function draw_key_marker(key)
     local dialog_rect = hdlg:GetDlgRect()
@@ -250,7 +322,14 @@ local function main()
       timer.Enabled = false
       clock_timer = far.Timer(config.CLOCK_INTERVAL_MS, function()
         if not closed then
-          if session.status == "won" or session.status == "game_over" then
+          if auto_play and auto_direction and auto_ready_at then
+            if now() >= auto_ready_at then
+              auto_ready_at = nil
+              schedule_auto_move()
+            else
+              clock_timer.Interval = math.max(1, math.floor((auto_ready_at - now()) * 1000 + 0.5))
+            end
+          elseif session.status == "won" or session.status == "game_over" then
             request_board_redraw()
           else
             update_view()
@@ -273,13 +352,19 @@ local function main()
     end
 
     if msg == F.DN_BTNCLICK then
+      local prev_auto_play = auto_play
       set_auto_play(false)
       if active_animation then return true end
       local action = button_actions[param1]
-      if not action then return nil end
-
       if session.paused and param1 ~= item_ids.pause_button then toggle_pause() end
-      action()
+      if param1 == item_ids.auto_button then
+        if not prev_auto_play then
+          set_auto_play(true)
+          start_ai_move()
+        end
+      else
+        action()
+      end
       return true
     end
 
@@ -314,6 +399,10 @@ local function main()
       end
       if F.DN_CONTROLINPUT and param2.EventType ~= F.KEY_EVENT then return nil end
 
+      if auto_play then
+        set_auto_play(false)
+        return true
+      end
       local key = (far.KeyToName or far.InputRecordToName)(param2) --luacheck: read_globals far.KeyToName
       return dispatch_key(normalize_key(key), param1) or nil
     end
@@ -327,6 +416,7 @@ local function main()
       active_animation = nil
       save_current()
       close_timers()
+      auto_play = false
       return true
     end
     return nil
