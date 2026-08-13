@@ -3,8 +3,10 @@ local T = root_loader("tests/test_runner")
 
 local clock = 0
 local animation_timer
+local clock_timer
 local dialog_proc
 local move_directions = {}
+local auto_play_states = {}
 local force_terminal
 local redraw_seconds = 0
 local animation_frame_intervals = {}
@@ -23,6 +25,9 @@ far = { --luacheck: allow_defined
   Timer = function(_, callback)
     local timer = { Enabled = false, Interval = 0, Close = function() end }
     if not animation_timer then animation_timer = { timer = timer, callback = callback } end
+    if animation_timer.timer ~= timer and not clock_timer then
+      clock_timer = { timer = timer, callback = callback }
+    end
     return timer
   end,
   Dialog = function(_, _, _, _, _, _, _, _, callback)
@@ -58,6 +63,7 @@ local config = {
   FRAMES_PER_TICK = 1, TIMER_INTERVAL_MS = 1,
   PHASE_DELAYS = { 0.01, 0.01, 0.01 }, CLOCK_INTERVAL_MS = 1000,
   STATUS_EFFECT_INTERVAL_MS = 1000, DIALOG_TITLE = "2048",
+  AI_MAX_DEPTH = 4, AI_BUDGET_MS = 40,
 }
 local layout = {
   calculate = function() return { dialog_w = 1, dialog_h = 1 } end,
@@ -76,7 +82,10 @@ local stubs = {
   ["far/config"] = config,
   ["far/backend"] = { create_buffer = function() return {} end, draw_to_far_buffer = function() end },
   ["far/dialog_layout"] = layout,
-  ["far/dialog_view"] = { update = function() end, apply_status_colors = function() end },
+  ["far/dialog_view"] = {
+    update = function(_, _, _, _, auto_play) auto_play_states[#auto_play_states + 1] = auto_play end,
+    apply_status_colors = function() end,
+  },
   ["lib/status_effect"] = { compute = function() return {} end },
   ["lib/animation_fsm"] = setmetatable({
     new_move_animation = function(...)
@@ -109,6 +118,41 @@ local stubs = {
 loader = function(name) return stubs[name] or root_loader(name) end --luacheck: allow_defined
 
 T.describe("far timer input", function()
+  T.it("delays auto moves after the first when animations are skipped", function()
+    animation_timer, clock_timer, synchro_callback, move_directions = nil, nil, nil, {}
+    local constants = root_loader("lib/constants")
+    local old_skip, old_delay = constants.SKIP_ANIMATIONS, constants.AUTO_PLAY_MIN_MOVE_DELAY
+    constants.SKIP_ANIMATIONS, constants.AUTO_PLAY_MIN_MOVE_DELAY = true, 1
+    local chunk = assert(loadfile("far/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    main()
+
+    dialog_proc({}, F.DN_BTNCLICK, 6, nil)
+    synchro_callback()
+    local moves = #move_directions
+    constants.SKIP_ANIMATIONS, constants.AUTO_PLAY_MIN_MOVE_DELAY = old_skip, old_delay
+    animation_timer, clock_timer, synchro_callback, move_directions = nil, nil, nil, {}
+    T.eq(moves, 1)
+  end)
+
+  T.it("skips animations when configured", function()
+    animation_timer, synchro_callback = nil, nil
+    move_directions = {}
+    local constants = root_loader("lib/constants")
+    constants.SKIP_ANIMATIONS = true
+    local chunk = assert(loadfile("far/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    main()
+
+    dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "right" })
+    local enabled = animation_timer.timer.Enabled
+    constants.SKIP_ANIMATIONS = nil
+    animation_timer, move_directions = nil, {}
+    T.eq(enabled, false)
+  end)
+
   T.it("keeps the first arrow key pressed during animation", function()
     local chunk = assert(loadfile("far/main.lua"))
     setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
@@ -136,6 +180,36 @@ T.describe("far timer input", function()
       animation_timer.callback(animation_timer.timer)
     end
     T.eq(animation_timer.timer.Enabled, false)
+  end)
+
+  T.it("keeps auto play running across focus records", function()
+    animation_timer, synchro_callback = nil, nil
+    local chunk = assert(loadfile("far/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    main()
+
+    local moves_before = #move_directions
+    dialog_proc({}, F.DN_BTNCLICK, 6, nil)
+    T.eq(#move_directions, moves_before + 1)
+    T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.FOCUS_EVENT }), nil)
+
+    config.FRAMES_PER_TICK = 100
+    for _ = 1, 2 do animation_timer.callback(animation_timer.timer) end
+    T.eq(synchro_callback ~= nil, true)
+  end)
+
+  T.it("stops auto play when the game is already over", function()
+    animation_timer, synchro_callback = nil, nil
+    auto_play_states, force_terminal = {}, true
+    local chunk = assert(loadfile("far/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    main()
+
+    dialog_proc({}, F.DN_BTNCLICK, 6, nil)
+    T.eq(auto_play_states[#auto_play_states], false)
+    force_terminal = nil
   end)
 
   T.it("uses full redraw time to pace the next animation", function()

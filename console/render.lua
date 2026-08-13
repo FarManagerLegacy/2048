@@ -86,7 +86,8 @@ end
 
 function M.render_frame(opts)
   local tiles = opts.tiles
-  local score = opts.score
+  local current_score = opts.score
+  local score = current_score
   local score_delta = opts.score_delta or 0
   if score_delta > 0 then score = string.format("%d +%d", score, score_delta) end
   local best = opts.best
@@ -136,7 +137,8 @@ function M.render_frame(opts)
       { text = "   Score: ", style = dim },
       { text = tostring(score), style = "\x1b[1m\x1b[38;2;255;215;0m" },
       { text = "   Best: ", style = dim },
-      { text = tostring(best), style = "\x1b[38;2;180;180;180m" },
+      { text = tostring(best), style = "\x1b[38;2;180;180;180m"
+        .. (current_score + score_delta > best and "\x1b[9m" or "") },
     }, BOARD_W),
     centered_styled_line({
       { text = "Moves: ", style = dim },
@@ -157,6 +159,10 @@ function M.render_frame(opts)
       { text = "Space: pause", style = dim },
       { text = "   N: new game", style = dim },
       { text = "   Esc: quit", style = dim },
+    }, BOARD_W),
+    centered_styled_line({
+      { text = "B: best move", style = dim },
+      { text = "   A: auto play/stop", style = dim },
     }, BOARD_W),
     centered_styled_line({ { text = "< / >: palette", style = dim } }, BOARD_W),
   }

@@ -29,8 +29,18 @@ T.describe("console.platform", function()
     for _, item in ipairs(expected) do
       T.eq(platform._decode_key(string.byte(item[1]), function() end), item[2])
     end
+    T.eq(platform._decode_key(0x08, function() end), "undo")
     T.eq(platform._decode_key(0x1b, function() end), "quit")
     T.eq(platform._decode_key(string.byte("P"), function() end), nil)
+  end)
+
+  T.it("maps AI controls", function()
+    for _, item in ipairs({
+      { "b", "best_move" }, { "B", "best_move" },
+      { "a", "auto_play" }, { "A", "auto_play" },
+    }) do
+      T.eq(platform._decode_key(string.byte(item[1]), function() end), item[2])
+    end
   end)
 
   T.it("maps this platform's arrow byte sequences", function()

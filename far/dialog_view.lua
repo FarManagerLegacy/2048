@@ -23,7 +23,7 @@ function M.format_status(status)
   return ""
 end
 
-function M.update(hdlg, ids, geom, session, state)
+function M.update(hdlg, ids, geom, session, auto_play, state)
   state = state or {}
   if not hdlg then return state end
   local text_changes = {}
@@ -47,6 +47,9 @@ function M.update(hdlg, ids, geom, session, state)
   local palette_value = session.palette
   set_text(ids.palette, palette_value)
   set_text(ids.pause_button, session.paused and " ▶ " or " &▶ ")
+  if ids.auto_button then
+    set_text(ids.auto_button, auto_play and "&Auto Stop" or "&Auto Play")
+  end
   local undo_enabled = session:can_undo()
   local undo_changed = state.undo_enabled ~= undo_enabled
   state.undo_enabled = undo_enabled

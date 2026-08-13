@@ -11,7 +11,9 @@ local screens = loader("console/screens")
 local save = loader("lib/save")
 local platform = loader("console/platform")
 local config = loader("console/config")
+local constants = loader("lib/constants")
 local status_effect = loader("lib/status_effect")
+local ai = loader("lib/ai")
 
 math.randomseed(os.time())
 
@@ -65,9 +67,38 @@ local function main()
     io.flush()
     do_render()
     local last_shown_second = math.floor(session:current_elapsed())
+    local auto_play = false
+    local auto_play_has_moved = false
+    local auto_direction
+    local auto_ready_at
+
+    local function execute_move(direction, preserve_input)
+      if not direction then return false end
+      if not preserve_input then platform.flush_input() end
+      local result = session:move(direction)
+      if not result.changed then return false end
+      if not constants.SKIP_ANIMATIONS then
+        animation.play_move(
+          result.new_board, result.moves, result.spawned_board, result.spawned,
+          {
+            score = session.score,
+            best = session.best,
+            moves_count = session.moves_count,
+            elapsed_seconds = session:current_elapsed(),
+            score_delta = session.pending_score,
+          }, session.palette
+        )
+      end
+      if session:has_pending_score() then session:settle_score() end
+      save_current()
+      do_render()
+      last_shown_second = math.floor(session:current_elapsed())
+      return true
+    end
 
     while true do
       if session.status == "game_over" or session.status == "won" then
+        auto_play = false
         session:freeze_time()
         local screen = session.status == "won" and screens.win_screen or screens.game_over_screen
         local outcome = screen(
@@ -89,7 +120,38 @@ local function main()
       end
 
       local key
-      if platform.kbhit() then
+      if auto_play and platform.kbhit() then
+        auto_play = false
+        auto_direction = nil
+        platform.read_key()
+        platform.flush_input()
+        goto continue
+      elseif auto_play then
+        if not auto_direction then
+          local started = platform.now()
+          auto_direction = ai.find_best_move(
+            session.board, constants.AI_AUTOPLAY, platform.now)
+          if not auto_direction then
+            auto_play = false
+          elseif auto_play_has_moved then
+            auto_ready_at = started + constants.AUTO_PLAY_MIN_MOVE_DELAY
+          else
+            auto_ready_at = started
+          end
+        end
+        if auto_play and platform.now() >= auto_ready_at then
+          local direction = auto_direction
+          auto_direction = nil
+          if execute_move(direction, true) then
+            auto_play_has_moved = true
+          else
+            auto_play = false
+          end
+        elseif auto_play then
+          platform.sleep(math.min(config.IDLE_POLL_DELAY, auto_ready_at - platform.now()))
+        end
+        goto continue
+      elseif platform.kbhit() then
         key = platform.read_key()
       else
         platform.sleep(config.IDLE_POLL_DELAY)
@@ -109,11 +171,13 @@ local function main()
         save_current()
         return
       elseif key == "restart" then
+        auto_play = false
         session:restart()
         save.clear_save()
         save_current()
         do_render()
       elseif key == "pause" then
+        auto_play = false
         session:set_paused(true)
         local outcome = screens.pause_screen(
           session.board, session.score, session.best, session.moves_count,
@@ -126,41 +190,32 @@ local function main()
         session:set_paused(false)
         do_render()
       elseif key == "palette_prev" or key == "palette_next" then
+        auto_play = false
         session:cycle_palette(key == "palette_prev" and -1 or 1)
         save_current()
         do_render()
       elseif key == "undo" then
+        auto_play = false
         if session:undo() then
           save_current()
           do_render()
         end
       elseif key == "up" or key == "down" or key == "left" or key == "right" then
-        local result = session:move(key)
-        if result.changed then
-          -- Discard keys queued before this move. Keys pressed while the
-          -- blocking animation is running are intentionally kept for the
-          -- next loop iteration.
-          platform.flush_input()
-          animation.play_move(
-            result.new_board, result.moves, result.spawned_board, result.spawned,
-            {
-              score = session.score,
-              best = session.best,
-              moves_count = session.moves_count,
-              elapsed_seconds = session:current_elapsed(),
-              score_delta = session.pending_score,
-            }, session.palette
-          )
-          if session:has_pending_score() then
-            session:settle_score()
-          end
-          save_current()
-          do_render()
-          last_shown_second = math.floor(session:current_elapsed())
+        auto_play = false
+        execute_move(key)
+      elseif key == "best_move" then
+        auto_play = false
+        execute_move(ai.find_best_move(session.board, constants.AI_BEST_MOVE, platform.now))
+      elseif key == "auto_play" then
+        auto_play = not auto_play
+        if auto_play then
+          auto_play_has_moved = false
+          auto_direction = nil
         end
       end
 
-      if key ~= nil and not (key == "up" or key == "down"
+      if key ~= nil and not (auto_play and key == "auto_play")
+          and not (key == "up" or key == "down"
           or key == "left" or key == "right") then
         platform.flush_input()
       end
