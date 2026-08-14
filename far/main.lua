@@ -39,8 +39,6 @@ local function main()
   local timer
   local clock_timer
   local active_animation
-  local current_focus
-  local previous_focus
   local slide_deadline
   local pending_key
   local average_render_time = constants.ANIM_FRAME_DELAY
@@ -190,12 +188,6 @@ local function main()
     end
   end
 
-  local function restore_usercontrol_focus(should_restore)
-    if should_restore then
-      hdlg:SetFocus(item_ids.usercontrol)
-    end
-  end
-
   local button_actions = {
     [item_ids.new_button] = reset_to_new_game,
     [item_ids.undo_button] = undo_last_move,
@@ -216,7 +208,7 @@ local function main()
     end
   end
 
-  local function dispatch_key(key)
+  local function dispatch_key(key, item_id)
     local is_arrow = arrow_glyphs[key] ~= nil
     if config.DEBUG and is_arrow then
       draw_key_marker(key)
@@ -235,7 +227,7 @@ local function main()
       if session.paused then toggle_pause() end
       undo_last_move()
       return true
-    elseif key == "pause" and current_focus == item_ids.usercontrol and session.status == "" then
+    elseif key == "pause" and item_id == item_ids.usercontrol and session.status == "" then
       toggle_pause()
       return true
     end
@@ -286,17 +278,9 @@ local function main()
       local action = button_actions[param1]
       if not action then return nil end
 
-      local restore_focus = current_focus == item_ids.usercontrol
-        or previous_focus == item_ids.usercontrol
       if session.paused and param1 ~= item_ids.pause_button then toggle_pause() end
       action()
-      restore_usercontrol_focus(restore_focus)
       return true
-    end
-
-    if msg == F.DN_GOTFOCUS then
-      previous_focus, current_focus = current_focus, param1
-      return nil
     end
 
     if msg == F.DN_CTLCOLORDLGITEM and param1 == item_ids.status then
@@ -331,7 +315,7 @@ local function main()
       if F.DN_CONTROLINPUT and param2.EventType ~= F.KEY_EVENT then return nil end
 
       local key = (far.KeyToName or far.InputRecordToName)(param2) --luacheck: read_globals far.KeyToName
-      return dispatch_key(normalize_key(key)) or nil
+      return dispatch_key(normalize_key(key), param1) or nil
     end
 
     if msg == F.DN_CLOSE then
