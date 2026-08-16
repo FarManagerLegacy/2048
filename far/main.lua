@@ -19,6 +19,7 @@ local status_effect = loader("lib/status_effect")
 local ai = loader("lib/ai")
 local arrow_glyphs = { up = "↑", down = "↓", left = "←", right = "→" }
 
+local uuid = win.Uuid("C2087654-1C22-4E79-95C3-5B420CEEB481")
 local function main()
   local now
   if far.FarClock then
@@ -281,6 +282,7 @@ local function main()
   end
 
   local function dispatch_key(key, item_id)
+    if not key then return end
     local is_arrow = arrow_glyphs[key] ~= nil
     if config.DEBUG and is_arrow then
       draw_key_marker(key)
@@ -292,29 +294,34 @@ local function main()
       end
       return false
     end
-    if is_arrow then
-      if session.status ~= "game_over" then
-        if session.paused then toggle_pause() end
-        begin_move(key)
-      end
-      return true
-    elseif key == "undo" and session:can_undo() then
-      if session.paused then toggle_pause() end
+    local was_paused = session.paused
+    if was_paused then toggle_pause() end
+    if key == "undo" and session:can_undo() then
       undo_last_move()
-      return true
-    elseif key == "pause" and item_id == item_ids.usercontrol
-        and session.status ~= "game_over" then
-      toggle_pause()
-      return true
+    elseif key == "palette_prev" then
+      hdlg:SetFocus(item_ids.palette_prev_button)
+      return hdlg:send(F.DN_BTNCLICK, item_ids.palette_prev_button)
+    elseif session.status == "game_over" then --luacheck: ignore 542
+      --nop
+    elseif is_arrow then
+      begin_move(key)
+    elseif key=="pause" or (key=="space" and item_id == item_ids.usercontrol) then
+      if not was_paused then toggle_pause() end
+    else
+      return false
     end
-    return false
+    return true
   end
 
-  local function normalize_key(name)
-    name = tostring(name or ""):lower()
+  local function normalize_key(name, rec)
+    name = tostring(name or ""):lower():gsub("[%s+]", "")
+    if not name:match("pause") and 0~=bit64.band(F.SHIFT_PRESSED, rec.ControlKeyState) then
+      name = "shift"..name
+    end
     return ({
       left = "left", up = "up", right = "right", down = "down",
-      space = "pause",
+      pause = "pause", space = "space",
+      shiftp = "palette_prev",
       bs = "undo",
     })[name]
   end
@@ -400,6 +407,7 @@ local function main()
           session:set_paused(true)
           save_current()
           update_view()
+          hdlg:SetFocus(item_ids.usercontrol)
         end
         return nil
       end
@@ -410,7 +418,7 @@ local function main()
         return true
       end
       local key = (far.KeyToName or far.InputRecordToName)(param2) --luacheck: read_globals far.KeyToName
-      return dispatch_key(normalize_key(key), param1) or nil
+      return dispatch_key(normalize_key(key, param2), param1) or nil
     end
 
     if msg == F.DN_CLOSE then
@@ -428,7 +436,7 @@ local function main()
     return nil
   end
 
-  far.Dialog(nil, -1, -1, geom.dialog_w, geom.dialog_h,
+  far.Dialog(uuid, -1, -1, geom.dialog_w, geom.dialog_h,
     config.DIALOG_TITLE, items, 0, dlg_proc)
 end
 

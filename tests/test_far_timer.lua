@@ -7,16 +7,19 @@ local clock_timer
 local dialog_proc
 local move_directions = {}
 local auto_play_states = {}
+local palette_states = {}
 local force_terminal
 local redraw_seconds = 0
 local animation_frame_intervals = {}
 local synchro_callback
+local focused_item
 local F = {
   -- DN_KEY and far.KeyToName are far2m-only; current FAR uses DN_CONTROLINPUT.
   DN_INITDIALOG = "init", DN_CONTROLINPUT = "input",
   DN_DRAWDLGITEM = "draw", DN_BTNCLICK = "click", DN_GOTFOCUS = "focus",
   DN_CTLCOLORDLGITEM = "color", DN_CLOSE = "close",
   KEY_EVENT = "key", FOCUS_EVENT = "focus", ACTL_SYNCHRO = "synchro",
+  SHIFT_PRESSED = 1,
 }
 
 far = { --luacheck: allow_defined
@@ -35,6 +38,8 @@ far = { --luacheck: allow_defined
       ShowItem = function()
         clock = clock + redraw_seconds
       end,
+      SetFocus = function(_, item) focused_item = item end,
+      send = function(_, message, item) return dialog_proc(hdlg, message, item, nil) end,
     }
     dialog_proc = callback
     callback(hdlg, F.DN_INITDIALOG, 0, nil)
@@ -50,11 +55,15 @@ far = { --luacheck: allow_defined
   InputRecordToName = function(record) return record.name end,
 }
 win = { --luacheck: allow_defined
+  Uuid = function(value) return value end,
   GetConsoleScreenBufferInfo = function()
     return { WindowTop = 0, WindowBottom = 31 }
   end,
 }
-bit64 = { bor = function(a, b) return a + b end } --luacheck: allow_defined
+bit64 = { --luacheck: allow_defined
+  bor = function(a, b) return a + b end,
+  band = function(a, b) return a == b and a or 0 end,
+}
 
 local board = {
   { 2, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 },
@@ -83,7 +92,10 @@ local stubs = {
   ["far/backend"] = { create_buffer = function() return {} end, draw_to_far_buffer = function() end },
   ["far/dialog_layout"] = layout,
   ["far/dialog_view"] = {
-    update = function(_, _, _, _, auto_play) auto_play_states[#auto_play_states + 1] = auto_play end,
+    update = function(_, _, _, session, auto_play)
+      auto_play_states[#auto_play_states + 1] = auto_play
+      palette_states[#palette_states + 1] = session.palette
+    end,
     apply_status_colors = function() end,
   },
   ["lib/status_effect"] = { compute = function() return {} end },
@@ -197,6 +209,32 @@ T.describe("far timer input", function()
     config.FRAMES_PER_TICK = 100
     for _ = 1, 2 do animation_timer.callback(animation_timer.timer) end
     T.eq(synchro_callback ~= nil, true)
+  end)
+
+  T.it("toggles pause with Pause and restores focus to the game field", function()
+    animation_timer, focused_item = nil, nil
+    local chunk = assert(loadfile("far/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    main()
+
+    dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "Pause" })
+    T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 1, { EventType = F.KEY_EVENT, name = "Pause" }), true)
+    T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.FOCUS_EVENT, SetFocus = false }), nil)
+    T.eq(focused_item, 1)
+  end)
+
+  T.it("uses Shift+P to click the previous palette button", function()
+    animation_timer, palette_states = nil, {}
+    local chunk = assert(loadfile("far/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    main()
+
+    T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 1,
+      { EventType = F.KEY_EVENT, name = "p", ControlKeyState = F.SHIFT_PRESSED }), true)
+    T.eq(palette_states[#palette_states], "sky")
+    T.eq(focused_item, 8)
   end)
 
   T.it("stops auto play when the game is already over", function()
