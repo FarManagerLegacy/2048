@@ -292,9 +292,12 @@ local function main()
       end
       return false
     end
-    if is_arrow and session.status == "" then
-      if session.paused then toggle_pause() end
-      if begin_move(key) then return true end
+    if is_arrow then
+      if session.status == "" then
+        if session.paused then toggle_pause() end
+        begin_move(key)
+      end
+      return true
     elseif key == "undo" and session:can_undo() then
       if session.paused then toggle_pause() end
       undo_last_move()

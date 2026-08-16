@@ -231,6 +231,20 @@ T.describe("far timer input", function()
     redraw_seconds = 0
   end)
 
+  T.it("consumes invalid arrow input", function()
+    animation_timer, clock_timer, move_directions = nil, nil, {}
+    board = {
+      { 2, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 },
+    }
+    local chunk = assert(loadfile("far/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    main()
+
+    T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "left" }), true)
+    T.eq(#move_directions, 1)
+  end)
+
 end)
 
 T.summary_and_exit()
