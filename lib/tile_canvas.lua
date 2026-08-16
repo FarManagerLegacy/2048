@@ -8,8 +8,11 @@ local color = loader("lib/color")
 local util = loader("lib/util")
 
 local constants = loader("lib/constants")
-local LOWER_HALF = "\xe2\x96\x84"
-local UPPER_HALF = "\xe2\x96\x80"
+local LOWER_HALF = "▄"
+local UPPER_HALF = "▀"
+local ACCENT_SYMBOLS = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" }
+local accent_width = math.floor(constants.GEOMETRY_UNIT/3*2+0.5)
+local ACCENT_SYMBOL = ACCENT_SYMBOLS[accent_width]
 
 local M = {}
 
@@ -77,11 +80,19 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
     bg = util.blend(empty_bg, bg, alpha)
   end
   local fg = tile.fg or color.tile_text_color(tile.value, palette)
+  local accent_fg = color.tile_accent_color(tile.value, palette)
+  if accent_fg then
+    if alpha < 1.0 then
+      accent_fg = util.blend(empty_bg, accent_fg, alpha)
+    end
+    if fade and fade > 0 then
+      accent_fg = util.blend(accent_fg, BLACK, fade)
+    end
+  end
   if fade and fade > 0 then
     bg = util.blend(bg, { 0, 0, 0 }, fade)
     fg = util.blend(fg, { 0, 0, 0 }, fade)
   end
-
   local x = gap_x + tile.col * (cell_w + gap_x)
   local y = geometry.OUTER_INSET_Y + tile.row * geometry.ROW_STRIDE_Y
   local ix = math.max(0, math.min(board_w - cell_w, util.round(x)))
@@ -92,10 +103,32 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
     for half_y = start_half, start_half + cell_h * 2 - 1 do
       for xx = 0, cell_w - 1 do paint_half(buf, half_y, ix + xx, bg) end
     end
+    local last_half = start_half + cell_h * 2 - 1
+    local bottom_row = math.floor(last_half / 2)
+    if constants.SHOW_TILE_ACCENTS then
+      accent_fg = accent_fg or util.blend(bg, BLACK, 0.3)
+      if last_half % 2 == 1 then
+        for xx = 0, cell_w - 1 do
+          buf[bottom_row + 1][ix + xx + 1] = { ACCENT_SYMBOL, accent_fg, bg }
+        end
+      else
+        for xx = 0, cell_w - 1 do
+          local cell = buf[bottom_row + 1][ix + xx + 1]
+          local _, bottom = cell_halves(cell)
+          buf[bottom_row + 1][ix + xx + 1] = { UPPER_HALF, accent_fg, bottom }
+        end
+      end
+    end
     text_row = math.floor((start_half + cell_h) / 2)
   else
     for yy = 0, cell_h - 1 do
       for xx = 0, cell_w - 1 do buf[iy + yy + 1][ix + xx + 1] = { " ", nil, bg } end
+    end
+    if constants.SHOW_TILE_ACCENTS then
+      accent_fg = accent_fg or util.blend(bg, BLACK, 0.3)
+      for xx = 0, cell_w - 1 do
+        buf[iy + cell_h][ix + xx + 1] = { ACCENT_SYMBOL, accent_fg, bg }
+      end
     end
     text_row = iy + math.floor(cell_h / 2)
   end
