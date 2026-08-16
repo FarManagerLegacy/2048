@@ -28,7 +28,7 @@ local function main()
   end
 
   local saved = save.load_state()
-  local initial_state = saved and board_mod.compute_status(saved.board) == "" and saved or nil
+  local initial_state = saved and board_mod.compute_status(saved.board) ~= "game_over" and saved or nil
   local session = game_session.new({ state = initial_state, clock = now })
   local screen = win.GetConsoleScreenBufferInfo() --luacheck: read_globals win.GetConsoleScreenBufferInfo
   local geom = layout.fit_to_height(screen.WindowBottom - screen.WindowTop + 1, constants.GEOMETRY_UNIT)
@@ -132,7 +132,7 @@ local function main()
 
   local function start_ai_move()
     if active_animation or session.paused then return false end
-    if session.status ~= "" then
+    if session.status == "game_over" then
       set_auto_play(false)
       return false
     end
@@ -174,7 +174,7 @@ local function main()
   local function start_pending_move()
     local key = pending_key
     pending_key = nil
-    if session.status == "" and not session.paused then begin_move(key) end
+    if session.status ~= "game_over" and not session.paused then begin_move(key) end
   end
 
   local function on_timer(handle)
@@ -293,7 +293,7 @@ local function main()
       return false
     end
     if is_arrow then
-      if session.status == "" then
+      if session.status ~= "game_over" then
         if session.paused then toggle_pause() end
         begin_move(key)
       end
@@ -302,7 +302,8 @@ local function main()
       if session.paused then toggle_pause() end
       undo_last_move()
       return true
-    elseif key == "pause" and item_id == item_ids.usercontrol and session.status == "" then
+    elseif key == "pause" and item_id == item_ids.usercontrol
+        and session.status ~= "game_over" then
       toggle_pause()
       return true
     end
@@ -346,9 +347,11 @@ local function main()
 
     if msg == F.DN_DRAWDLGITEM and param1 == item_ids.usercontrol then
       local visual_status = session:has_pending_score() and "" or session.status
-      local effect = status_effect.compute(visual_status, session.paused, session.palette, now())
+      local effect = status_effect.compute(visual_status, session.paused, session.palette,
+        now(), session:victory_effect())
       far_backend.draw_to_far_buffer(far_buffer, {
         tiles = current_tiles(), board_tint = effect.board_tint, fade = effect.fade,
+        tile_effect = effect.tile_effect,
         palette = session.palette,
       })
       return true

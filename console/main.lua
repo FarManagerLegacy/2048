@@ -32,7 +32,7 @@ local function main()
 
     local saved = save.load_state()
     local session
-    if saved and board_mod.compute_status(saved.board) == "" then
+    if saved and board_mod.compute_status(saved.board) ~= "game_over" then
       session = game_session.new({ state = saved, clock = platform.now })
     elseif saved then
       save.clear_save()
@@ -46,7 +46,7 @@ local function main()
     local function do_render()
       local visual_status = session:has_pending_score() and "" or session.status
       local effect = status_effect.compute(visual_status, session.paused, session.palette,
-        session:current_elapsed())
+        platform.now(), session:victory_effect())
       render.render_frame({
         tiles = tiles_mod.board_to_tiles(session.board),
         score = session.score,
@@ -60,6 +60,7 @@ local function main()
         board_tint = effect.board_tint,
         fade = effect.fade,
         blink = effect.blink,
+        tile_effect = effect.tile_effect,
       })
     end
 
@@ -67,6 +68,7 @@ local function main()
     io.flush()
     do_render()
     local last_shown_second = math.floor(session:current_elapsed())
+    local last_effect_render = platform.now()
     local auto_play = false
     local auto_play_has_moved = false
     local auto_direction
@@ -97,11 +99,10 @@ local function main()
     end
 
     while true do
-      if session.status == "game_over" or session.status == "won" then
+      if session.status == "game_over" then
         auto_play = false
         session:freeze_time()
-        local screen = session.status == "won" and screens.win_screen or screens.game_over_screen
-        local outcome = screen(
+        local outcome = screens.game_over_screen(
           session.board, session.score, session.best, session.moves_count,
           session:current_elapsed(), session:can_undo(), session.palette
         )
@@ -158,8 +159,15 @@ local function main()
       end
 
       if key == nil then
+        local current_time = platform.now()
         local sec = math.floor(session:current_elapsed())
-        if sec ~= last_shown_second then
+        local effect_active = session:victory_effect() ~= nil
+          or session.status == "game_over"
+        if effect_active and current_time - last_effect_render
+            >= constants.STATUS_EFFECT_INTERVAL_SECONDS then
+          last_effect_render = current_time
+          do_render()
+        elseif sec ~= last_shown_second then
           last_shown_second = sec
           do_render()
         end

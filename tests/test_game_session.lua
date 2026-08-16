@@ -4,6 +4,7 @@ local loader = dofile("loader.lua")()
 local T = loader("tests/test_runner")
 local board = loader("lib/board")
 local session_mod = loader("lib/game_session")
+local constants = loader("lib/constants")
 
 local function state_for(board_value)
   return {
@@ -65,6 +66,54 @@ T.describe("GameSession", function()
     local next_result = s:move("left")
     T.ok(next_result.changed)
     T.not_ok(s:has_pending_score())
+  end)
+
+  T.it("continues after winning and follows the winning tile", function()
+    local now = 0
+    local b = board.new_empty_board()
+    b[1][1], b[1][2] = 10, 10
+    local s = session_mod.new({
+      state = state_for(b),
+      clock = function() return now end,
+      spawn_tile = function(target)
+        target[4][4] = 1
+        return { r = 4, c = 4, value = 1 }
+      end,
+    })
+
+    T.ok(s:move("left").changed)
+    s:settle_score()
+    T.eq(s.status, "won")
+    T.eq(s:victory_effect().row, 1)
+    T.eq(s:victory_effect().col, 1)
+
+    T.ok(s:move("right").changed)
+    T.eq(s:victory_effect().row, 1)
+    T.eq(s:victory_effect().col, 4)
+  end)
+
+  T.it("keeps the victory effect alive for at least five seconds", function()
+    local now = 0
+    local b = board.new_empty_board()
+    b[1][1], b[1][2] = 10, 10
+    local s = session_mod.new({
+      state = state_for(b),
+      clock = function() return now end,
+      spawn_tile = function(target)
+        target[4][4] = 1
+        return { r = 4, c = 4, value = 1 }
+      end,
+    })
+
+    s:move("left")
+    now = 4.99
+    T.ok(s:victory_effect())
+    now = 5
+    T.ok(s:victory_effect())
+    local duration = math.ceil(constants.VICTORY_EFFECT_SECONDS /
+      constants.VICTORY_EFFECT_PHASE_SECONDS) * constants.VICTORY_EFFECT_PHASE_SECONDS
+    now = duration
+    T.not_ok(s:victory_effect())
   end)
 
   T.it("restart can be undone", function()

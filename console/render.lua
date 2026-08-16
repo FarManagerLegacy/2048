@@ -97,6 +97,7 @@ function M.render_frame(opts)
   local status_color = opts.status_color
   local board_tint = opts.board_tint
   local fade = opts.fade or 0
+  local tile_effect = opts.tile_effect
   local blink = opts.blink or false
   local sparkles = opts.sparkles
   local paused = opts.paused or false
@@ -107,6 +108,7 @@ function M.render_frame(opts)
     board_tint = board_tint,
     fade = fade,
     palette = palette,
+    tile_effect = tile_effect,
   })
 
   if sparkles then
