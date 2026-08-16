@@ -12,8 +12,7 @@ local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
 local M = {}
 M.OUTER_RESET = "\x1b[0m"
 
--- U+23F8 PAUSE SYMBOL as raw UTF-8 bytes (LuaJIT has no \uXXXX escape).
-local PAUSE_SYMBOL = "\xe2\x8f\xb8"
+local PAUSE_SYMBOL = "⏸"
 
 local function render_buffer(buf)
   local lines = {}

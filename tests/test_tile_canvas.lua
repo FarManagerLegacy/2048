@@ -156,7 +156,10 @@ T.describe("tile_canvas", function()
     local empty = color.empty_color("classic")
     local board_bg = color.board_bg_color("classic")
     local tile = color.tile_color(1, "classic")
+    local old_show_tile_accents = constants.SHOW_TILE_ACCENTS
+    constants.SHOW_TILE_ACCENTS = false
     local buf = canvas.rasterize({ { row = 0.125, col = 0, value = 1 } }, { palette = "classic" })
+    constants.SHOW_TILE_ACCENTS = old_show_tile_accents
     local x = geometry.GAP_X + 1
     local y = geometry.OUTER_INSET_Y + 0.125 * geometry.ROW_STRIDE_Y
     local start_half = util.round(2 * y)

@@ -13,7 +13,7 @@ M.AUTO_PLAY_MIN_MOVE_DELAY = 0.500
 --M.SKIP_ANIMATIONS = true
 
 -- Shared board geometry defaults. geometry.lua derives cell/gap dimensions.
-M.FONT_ASPECT_CORRECTION = 1.3
+M.FONT_ASPECT_CORRECTION = 1.2
 M.TILE_ASPECT = 1
 M.CHAR_ASPECT = 2 * M.TILE_ASPECT * M.FONT_ASPECT_CORRECTION
 M.GEOMETRY_UNIT = 3
@@ -27,6 +27,8 @@ M.ANIM_EASE_POWER = 3
 M.USE_HALF_BLOCKS = true
 -- Master switch for drawing empty tile backgrounds.
 M.DRAW_EMPTY_TILES = true
+-- Master switch for drawing the variable-height tile accent.
+M.SHOW_TILE_ACCENTS = true
 M.MERGE_POP_FRAMES = 6
 M.MERGE_POP_DELAY = 0.02
 M.SPAWN_FADE_FRAMES = 4
