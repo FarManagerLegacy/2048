@@ -114,11 +114,31 @@ M.PALETTES = {
       { 123, 185, 114 },
       { 103, 173, 91 },
     },
-  }
+  },
+  threes = {
+    type = "threes",
+    board_bg = { 207, 231, 224 },
+    empty = { 187, 217, 217 },
+    tile_bg = {
+      { 241, 103, 128 },
+      { 114, 202, 242 },
+      { 255, 255, 255 },
+    },
+    text = {
+      { 255, 255, 255 },
+      { 3, 4, 5 },
+      { 241, 103, 128 },
+    },
+    accent = {
+      { 205, 83, 124 },
+      { 107, 166, 218 },
+      { 255, 204, 104 },
+    },
+  },
 }
 
 M._PALETTE_NAMES = {
-  "classic", "original", "original-dark", "mint", "mint-dark",
+  "classic", "threes", "original", "original-dark", "mint", "mint-dark",
   "gradient", "ocean", "amber", "rose", "sky"
 }
 
@@ -133,11 +153,6 @@ function M.cycle_palette(current, step)
   local next_idx = ((idx - 1 + (step or 1)) % #names) + 1
   local next_name = names[next_idx]
   return next_name
-end
-
-local function resolve_palette(name)
-  name = name or "classic"
-  return M.PALETTES[name] or M.PALETTES.classic
 end
 
 local function tiles_min_key(tiles)
@@ -169,11 +184,8 @@ local function extrapolate_color(value, palette)
   return { util.trunc(r * 255), util.trunc(g * 255), util.trunc(b * 255) }
 end
 
--- Palettes may define only part of the tile range. Exact colors win; values
--- below the smallest defined tile reuse that color, while larger values are
--- extrapolated from the largest defined tile in HSV.
-function M.tile_color(value, palette_name)
-  local palette = resolve_palette(palette_name)
+local default = {}
+function default.tile_color(value, palette)
   local tiles = palette.tiles
   if tiles[value] then return tiles[value] end
   local min_key = tiles_min_key(tiles)
@@ -181,20 +193,68 @@ function M.tile_color(value, palette_name)
   return extrapolate_color(value, palette)
 end
 
-function M.board_bg_color(palette_name)
-  return resolve_palette(palette_name).board_bg
-end
-
-function M.empty_color(palette_name)
-  return resolve_palette(palette_name).empty
-end
-
-function M.tile_text_color(value, palette_name)
-  local palette = resolve_palette(palette_name)
+function default.text_color(value, palette)
   if value == 1 or value == 2 then
     return palette.text_dark or { 119, 110, 101 }
   end
   return palette.text_light or { 249, 246, 242 }
+end
+
+function default.accent_color()
+  return nil
+end
+
+local threes = {}
+function threes.tile_color(value, palette)
+  if value <= 1 then return palette.tile_bg[1] end
+  if value == 2 then return palette.tile_bg[2] end
+  return palette.tile_bg[3]
+end
+
+function threes.text_color(value, palette)
+  if value <= 2 then return palette.text[1] end
+  if value <= 6 then return palette.text[2] end
+  return palette.text[3]
+end
+
+function threes.accent_color(value, palette)
+  if value <= 1 then return palette.accent[1] end
+  if value == 2 then return palette.accent[2] end
+  return palette.accent[3]
+end
+
+local PALETTE_TYPES = {
+  default = default,
+  threes = threes,
+}
+
+local function palette_type(palette)
+  return PALETTE_TYPES[palette.type or "default"] or PALETTE_TYPES.default
+end
+
+function M.tile_color(value, palette_name)
+  local palette = M.PALETTES[palette_name] or M.PALETTES.classic
+  return palette_type(palette).tile_color(value, palette)
+end
+
+function M.board_bg_color(palette_name)
+  local palette = M.PALETTES[palette_name] or M.PALETTES.classic
+  return palette.board_bg
+end
+
+function M.empty_color(palette_name)
+  local palette = M.PALETTES[palette_name] or M.PALETTES.classic
+  return palette.empty
+end
+
+function M.tile_text_color(value, palette_name)
+  local palette = M.PALETTES[palette_name] or M.PALETTES.classic
+  return palette_type(palette).text_color(value, palette)
+end
+
+function M.tile_accent_color(value, palette_name)
+  local palette = M.PALETTES[palette_name] or M.PALETTES.classic
+  return palette_type(palette).accent_color(value, palette)
 end
 
 return M
