@@ -67,6 +67,7 @@ function M.draw_to_far_buffer(far_buffer, opts)
     board_tint = board_tint,
     fade = fade,
     palette = palette,
+    tile_effect = opts.tile_effect,
   })
 
   for y = 1, board_h do

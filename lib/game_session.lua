@@ -31,12 +31,25 @@ local function normalize_palette(name)
   return color.PALETTES[name] and name or "classic"
 end
 
+local function update_victory_target(target, moves)
+  if not target then return end
+  for _, move in ipairs(moves) do
+    if move.fr == target.row and move.fc == target.col then
+      if move.merged then return nil end
+      target.row, target.col = move.tr, move.tc
+      return target
+    end
+  end
+  return target
+end
+
 function M.new(options)
   options = options or {}
   local clock = options.clock or os.clock
   local spawn_tile = options.spawn_tile or board_mod.spawn_tile
   local saved = options.state
   local board = saved and board_mod.copy_board(saved.board) or default_new_game(spawn_tile)
+  local status = board_mod.compute_status(board)
 
   local self = setmetatable({
     board = board,
@@ -44,7 +57,7 @@ function M.new(options)
     best = saved and (saved.best or 0) or 0,
     moves_count = saved and (saved.moves_count or 0) or 0,
     elapsed_seconds = saved and (saved.elapsed_seconds or 0) or 0,
-    status = board_mod.compute_status(board),
+    status = status,
     palette = normalize_palette(saved and saved.palette),
     history = {},
     paused = false,
@@ -53,6 +66,8 @@ function M.new(options)
     spawn_tile = spawn_tile,
     new_game = options.new_game,
     pending_score = 0,
+    victory_target = nil,
+    victory_started_at = nil,
   }, Session)
 
   if options.history then
@@ -95,13 +110,13 @@ function Session:freeze_time()
 end
 
 function Session:resume_time()
-  if self.status == "" and not self.paused then
+  if self.status ~= "game_over" and not self.paused then
     self.time_segment_start = self.clock()
   end
 end
 
 function Session:move(direction)
-  if self.paused or self.status ~= "" or self.pending_score > 0 then
+  if self.paused or self.status == "game_over" or self.pending_score > 0 then
     return { changed = false, reason = "inactive" }
   end
 
@@ -111,14 +126,30 @@ function Session:move(direction)
   end
 
   self:_push_history()
+  self.victory_target = update_victory_target(self.victory_target, moves)
   local spawned_board = board_mod.copy_board(new_board)
   local spawned = self.spawn_tile(spawned_board)
 
   self.board = spawned_board
   self.pending_score = gained
   self.moves_count = self.moves_count + 1
-  self.status = board_mod.compute_status(self.board)
-  if self.status ~= "" then
+  if self.status ~= "won" then
+    local winning_merge
+    for _, move in ipairs(moves) do
+      if move.merged and self.board[move.tr][move.tc] >= constants.WIN_INDEX then
+        winning_merge = move
+        break
+      end
+    end
+    if winning_merge then
+      self.victory_target = { row = winning_merge.tr, col = winning_merge.tc }
+      self.victory_started_at = self.clock()
+      self.status = "won"
+    else
+      self.status = board_mod.compute_status(self.board)
+    end
+  end
+  if self.status == "game_over" then
     self:freeze_time()
   end
 
@@ -130,6 +161,22 @@ function Session:move(direction)
     moves = moves,
     gained = gained,
     status = self.status,
+  }
+end
+
+function Session:victory_effect()
+  if not self.victory_target or not self.victory_started_at then return nil end
+  local duration = math.ceil(constants.VICTORY_EFFECT_SECONDS /
+    constants.VICTORY_EFFECT_PHASE_SECONDS) * constants.VICTORY_EFFECT_PHASE_SECONDS
+  local elapsed = self.clock() - self.victory_started_at
+  local remaining = duration - elapsed
+  if remaining <= 0 then return nil end
+  return {
+    row = self.victory_target.row,
+    col = self.victory_target.col,
+    value = self.board[self.victory_target.row][self.victory_target.col],
+    elapsed = elapsed,
+    remaining = remaining,
   }
 end
 
@@ -156,6 +203,8 @@ function Session:restart()
   self.moves_count = 0
   self.elapsed_seconds = 0
   self.status = board_mod.compute_status(self.board)
+  self.victory_target = nil
+  self.victory_started_at = nil
   self.paused = false
   self.time_segment_start = self.clock()
 end
@@ -171,9 +220,11 @@ function Session:undo()
   self.moves_count = entry.moves_count
   self.elapsed_seconds = entry.elapsed_seconds
   self.status = board_mod.compute_status(self.board)
+  self.victory_target = nil
+  self.victory_started_at = nil
   self.paused = entry.paused or false
   self.time_segment_start = nil
-  if self.status == "" and not self.paused then
+  if self.status ~= "game_over" and not self.paused then
     self.time_segment_start = self.clock()
   end
   return true

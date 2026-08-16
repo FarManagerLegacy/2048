@@ -34,6 +34,15 @@ T.describe("status_effect", function()
     T.eq(classic.fade, 0)
     T.not_ok(classic.blink)
   end)
+
+  T.it("highlights the current victory tile", function()
+    local e = effect.compute("", false, "classic", 0, {
+      row = 1, col = 2, value = 11, remaining = 5,
+    })
+    T.eq(e.tile_effect.row, 0)
+    T.eq(e.tile_effect.col, 1)
+    T.not_ok(T.deep_eq(e.tile_effect.bg, { 255, 200, 60 }))
+  end)
 end)
 
 T.summary_and_exit()

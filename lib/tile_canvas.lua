@@ -126,6 +126,13 @@ function M.rasterize(tiles, opts)
   local buf = M.new_buffer(board_bg)
   if constants.DRAW_EMPTY_TILES then M.fill_empty_cells(buf, empty_bg) end
   for _, tile in ipairs(tiles or {}) do
+    if opts.tile_effect and tile.row == opts.tile_effect.row
+        and tile.col == opts.tile_effect.col then
+      tile = {
+        row = tile.row, col = tile.col, value = tile.value,
+        alpha = tile.alpha, bg = opts.tile_effect.bg, fg = opts.tile_effect.fg,
+      }
+    end
     M.draw_tile(buf, tile, empty_bg, palette, fade)
   end
   return buf
