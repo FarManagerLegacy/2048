@@ -10,7 +10,16 @@ local board_width, board_height = constants.BOARD_WIDTH, constants.BOARD_HEIGHT
 
 function M.compute_cell_dimensions(unit, char_aspect)
   local h = unit
-  local w = math.max(3, util.round(h * char_aspect))
+  local accent_width = math.floor(unit / 3 * 2 + 0.5)
+  local accent_loss = constants.SHOW_TILE_ACCENTS
+    and accent_width / (8 * unit) or 0
+  local rendered_loss = constants.SHOW_TILE_ACCENTS
+    and ((constants.USE_HALF_BLOCKS and unit % 2 == 0) and 4 or accent_width)
+      / (8 * unit) or 0
+  -- Keep the aspect based on the visible tile height, not the sacrificed edge.
+  local w = math.max(3, util.round(
+    h * char_aspect * (1 - rendered_loss) / (1 - accent_loss)
+  ))
   return w, h
 end
 

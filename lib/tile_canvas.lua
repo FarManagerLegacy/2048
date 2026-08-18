@@ -11,8 +11,13 @@ local constants = loader("lib/constants")
 local LOWER_HALF = "▄"
 local UPPER_HALF = "▀"
 local ACCENT_SYMBOLS = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" }
-local accent_width = math.floor(constants.GEOMETRY_UNIT/3*2+0.5)
-local ACCENT_SYMBOL = ACCENT_SYMBOLS[accent_width]
+local ACCENT_SYMBOL_SET = {}
+for _, symbol in ipairs(ACCENT_SYMBOLS) do ACCENT_SYMBOL_SET[symbol] = true end
+
+local function accent_symbols(unit)
+  local width = math.floor(unit / 3 * 2 + 0.5)
+  return ACCENT_SYMBOLS[width], ACCENT_SYMBOLS[8 - width]
+end
 
 local M = {}
 
@@ -25,6 +30,7 @@ end
 local function cell_halves(cell)
   if cell[1] == UPPER_HALF then return cell[2], cell[3] end
   if cell[1] == LOWER_HALF then return cell[3], cell[2] end
+  if ACCENT_SYMBOL_SET[cell[1]] then return cell[3], cell[2] end
   return cell[3], cell[3]
 end
 
@@ -57,9 +63,26 @@ function M.fill_empty_cells(buf, empty_bg)
       local x0 = gap_x + c * (cell_w + gap_x)
       local y = geometry.OUTER_INSET_Y + r * geometry.ROW_STRIDE_Y
       if constants.USE_HALF_BLOCKS then
+        local half_height = cell_h * 2
+        if constants.SHOW_TILE_ACCENTS and cell_h % 2 == 0 then
+          -- Match the half-block accent trick's lost 4/8 of the cell.
+          half_height = half_height - 1
+        end
         local start_half = math.max(0, math.min(board_h * 2 - cell_h * 2, util.round(2 * y)))
-        for half_y = start_half, start_half + cell_h * 2 - 1 do
+        for half_y = start_half, start_half + half_height - 1 do
           for xx = 0, cell_w - 1 do paint_half(buf, half_y, x0 + xx, empty_bg) end
+        end
+        if constants.SHOW_TILE_ACCENTS and cell_h % 2 == 0 then
+          local _, inverted_accent_symbol = accent_symbols(geometry.UNIT)
+          local boundary_row = math.floor((start_half + half_height) / 2)
+          for xx = 0, cell_w - 1 do
+            local cell = buf[boundary_row + 1][x0 + xx + 1]
+            local _, bottom = cell_halves(cell)
+            -- Keep the accent's fractional 1/8 instead of dropping it too.
+            buf[boundary_row + 1][x0 + xx + 1] = {
+              inverted_accent_symbol, bottom, empty_bg,
+            }
+          end
         end
       else
         local iy = math.max(0, math.min(board_h - cell_h, util.round(y)))
@@ -81,6 +104,7 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
   end
   local fg = tile.fg or color.tile_text_color(tile.value, palette)
   local accent_fg = color.tile_accent_color(tile.value, palette)
+  local accent_symbol, inverted_accent_symbol = accent_symbols(geometry.UNIT)
   if accent_fg then
     if alpha < 1.0 then
       accent_fg = util.blend(empty_bg, accent_fg, alpha)
@@ -109,13 +133,16 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
       accent_fg = accent_fg or util.blend(bg, BLACK, 0.3)
       if last_half % 2 == 1 then
         for xx = 0, cell_w - 1 do
-          buf[bottom_row + 1][ix + xx + 1] = { ACCENT_SYMBOL, accent_fg, bg }
+          buf[bottom_row + 1][ix + xx + 1] = { accent_symbol, accent_fg, bg }
         end
       else
         for xx = 0, cell_w - 1 do
           local cell = buf[bottom_row + 1][ix + xx + 1]
           local _, bottom = cell_halves(cell)
-          buf[bottom_row + 1][ix + xx + 1] = { UPPER_HALF, accent_fg, bottom }
+          -- There are no upper fractional blocks: invert the matching lower one.
+          buf[bottom_row + 1][ix + xx + 1] = {
+            inverted_accent_symbol, bottom, accent_fg,
+          }
         end
       end
     end
@@ -127,10 +154,12 @@ function M.draw_tile(buf, tile, empty_bg, palette, fade)
     if constants.SHOW_TILE_ACCENTS then
       accent_fg = accent_fg or util.blend(bg, BLACK, 0.3)
       for xx = 0, cell_w - 1 do
-        buf[iy + cell_h][ix + xx + 1] = { ACCENT_SYMBOL, accent_fg, bg }
+        buf[iy + cell_h][ix + xx + 1] = { accent_symbol, accent_fg, bg }
       end
     end
-    text_row = iy + math.floor(cell_h / 2)
+    text_row = iy + ((not constants.USE_HALF_BLOCKS
+      and constants.SHOW_TILE_ACCENTS and cell_h == 2)
+      and 0 or math.floor(cell_h / 2))
   end
 
   local text = tostring(2 ^ tile.value)

@@ -48,6 +48,35 @@ T.describe("tile_canvas", function()
     geometry.set_unit(original_unit)
   end)
 
+  T.it("accounts for accent and half-block losses in cell aspect", function()
+    local width = geometry.compute_cell_dimensions(2, 2.4)
+    T.eq(width, 4)
+  end)
+
+  T.it("does not reserve accent height when accents are hidden", function()
+    local old_show_tile_accents = constants.SHOW_TILE_ACCENTS
+    constants.SHOW_TILE_ACCENTS = false
+    local width = geometry.compute_cell_dimensions(2, 2.4)
+    constants.SHOW_TILE_ACCENTS = old_show_tile_accents
+    T.eq(width, 5)
+  end)
+
+  T.it("inverts the block for a thin accent in the upper half", function()
+    local original_unit = geometry.UNIT
+    local original_constant = constants.GEOMETRY_UNIT
+    constants.GEOMETRY_UNIT = 4
+    geometry.set_unit(2)
+    local buf = canvas.rasterize({ { row = 0, col = 0, value = 1 } }, { palette = "classic" })
+    local start_half = util.round(2 * geometry.OUTER_INSET_Y)
+    local bottom_row = math.floor((start_half + geometry.CELL_H * 2 - 1) / 2)
+    local cell = buf[bottom_row + 1][geometry.GAP_X + 1]
+    constants.GEOMETRY_UNIT = original_constant
+    geometry.set_unit(original_unit)
+    T.eq(cell[1], "▇")
+    T.eq(cell[2], color.board_bg_color("classic"))
+    T.eq(cell[3], util.blend(color.tile_color(1, "classic"), { 0, 0, 0 }, 0.3))
+  end)
+
   T.it("tests rendering independently across geometry and flag settings", function()
     for _, unit in ipairs({ 2, 3, 4, 5 }) do
       for _, use_half_blocks in ipairs({ true, false }) do
@@ -68,6 +97,30 @@ T.describe("tile_canvas", function()
           T.eq(case_color.tile_color(1, "classic"), { 238, 228, 218 })
       end
     end
+  end)
+
+  T.it("keeps text above the accent for two whole rows", function()
+    local case_canvas, case_geometry = load_geometry_case(2, false)
+    local buf = case_canvas.rasterize({ { row = 0, col = 0, value = 1 } }, {
+      palette = "classic",
+    })
+    local x = case_geometry.GAP_X
+      + math.floor((case_geometry.CELL_W - 1) / 2) + 1
+    local iy = util.round(case_geometry.OUTER_INSET_Y)
+    T.eq(buf[iy + 1][x][1], "2")
+    T.ok(buf[iy + 2][x][1] ~= "2", "accent row must stay clear of tile text")
+  end)
+
+  T.it("shortens empty half-block cells for the accent edge", function()
+    local case_canvas, case_geometry, case_color = load_geometry_case(2, true)
+    local buf = case_canvas.new_buffer(case_color.board_bg_color("classic"))
+    case_canvas.fill_empty_cells(buf, case_color.empty_color("classic"))
+    local start_half = util.round(2 * case_geometry.OUTER_INSET_Y)
+    local bottom_row = math.floor((start_half + case_geometry.CELL_H * 2 - 1) / 2)
+    local cell = buf[bottom_row + 1][case_geometry.GAP_X + 1]
+    T.eq(cell[1], "▇")
+    T.eq(cell[2], case_color.board_bg_color("classic"))
+    T.eq(cell[3], case_color.empty_color("classic"))
   end)
 
   T.it("creates and fills a board-sized cell buffer", function()
