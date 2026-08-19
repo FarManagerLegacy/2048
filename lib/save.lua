@@ -66,20 +66,38 @@ function M.save_state(state)
 end
 
 function M.load_state()
-  local f = io.open(M.SAVE_PATH, "r")
-  if not f then return nil end
+  local f, open_err = io.open(M.SAVE_PATH, "r")
+  if not f then
+    if os.rename(M.SAVE_PATH, M.SAVE_PATH) then
+      return nil, "Save read error: " .. tostring(open_err)
+    end
+    return nil, nil
+  end
   local contents = f:read("*a")
   f:close()
 
-  local chunk = loadstring("return " .. contents)
+  local chunk, syntax_err = loadstring("return " .. contents)
+  if not chunk then return nil, "Save syntax error: " .. tostring(syntax_err) end
   if chunk then setfenv(chunk, {}) end
-  local ok, data = false, nil
-  if chunk then ok, data = pcall(chunk) end
-  if not ok or type(data) ~= "table" then return nil end
+  local ok, data = pcall(chunk)
+  if not ok then return nil, "Save format error: " .. tostring(data) end
+  if type(data) ~= "table" then return nil, "Save format error: expected a table" end
 
-  if data.game ~= "2048" then return nil end
+  data.game = data.game or "2048"
+  if data.game ~= "2048" then return nil, "Unsupported game in save: " .. tostring(data.game) end
   local b = data.board
-  if not valid_board(b) then return nil end
+  if not valid_board(b) then return nil, "Invalid board format in save" end
+  for _, field in ipairs({ "score", "best", "moves_count" }) do
+    local value = data[field]
+    if value ~= nil and (type(value) ~= "number" or value < 0 or value % 1 ~= 0) then
+      return nil, "Invalid numeric field " .. field
+    end
+  end
+  local elapsed = data.elapsed_seconds
+  if elapsed ~= nil and (type(elapsed) ~= "number" or elapsed < 0
+      or elapsed ~= elapsed or elapsed == math.huge or elapsed == -math.huge) then
+    return nil, "Invalid numeric field elapsed_seconds"
+  end
   return data
 end
 

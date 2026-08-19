@@ -30,9 +30,12 @@ local function main()
     platform.enter_alternate_screen()
     alternate = true
 
-    local saved = save.load_state()
+    local saved, load_err = save.load_state()
     local session
-    if saved and board_mod.compute_status(saved.board) ~= "game_over" then
+    if load_err then
+      if screens.corrupt_save_screen(load_err) ~= "restart" then return end
+      save.clear_save()
+    elseif saved and board_mod.compute_status(saved.board) ~= "game_over" then
       session = game_session.new({ state = saved, clock = platform.now })
     elseif saved then
       save.clear_save()

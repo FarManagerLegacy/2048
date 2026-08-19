@@ -210,6 +210,12 @@ T.describe("save/load round trip", function()
     temp_dir.cleanup()
   end
 
+  local function write_save(contents)
+    local f = io.open(save.SAVE_PATH, "w")
+    f:write(contents)
+    f:close()
+  end
+
   T.it("round trip preserves fields", function()
     setup_tmp_save_path()
     local b = board.new_empty_board()
@@ -219,7 +225,8 @@ T.describe("save/load round trip", function()
       board = b, score = 120, best = 500, moves_count = 7,
       elapsed_seconds = 42.5, palette = "classic",
     })
-    local loaded = save.load_state()
+    local loaded, err = save.load_state()
+    T.eq(err, nil)
     T.eq(loaded.board, b)
     T.eq(loaded.score, 120)
     T.eq(loaded.best, 500)
@@ -266,29 +273,66 @@ T.describe("save/load round trip", function()
   T.it("load missing file returns nil", function()
     setup_tmp_save_path()
     save.clear_save()
-    T.eq(save.load_state(), nil)
+    local loaded, err = save.load_state()
+    T.eq(loaded, nil)
+    T.eq(err, nil)
     teardown_tmp_save_path()
   end)
 
   T.it("load corrupted file returns nil", function()
     setup_tmp_save_path()
-    local f = io.open(save.SAVE_PATH, "w")
-    f:write("not valid json {{{")
-    f:close()
-    T.eq(save.load_state(), nil)
+    write_save("not valid lua {{{")
+    local loaded, err = save.load_state()
+    T.eq(loaded, nil)
+    T.ok(err and err:match("syntax"))
     teardown_tmp_save_path()
   end)
 
-  T.it("rejects wrong game ids and non-integer indices", function()
+  T.it("defaults missing game id to 2048", function()
     setup_tmp_save_path()
-    local f = io.open(save.SAVE_PATH, "w")
-    f:write('{game="other",board={{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}}}')
-    f:close()
-    T.eq(save.load_state(), nil)
-    f = io.open(save.SAVE_PATH, "w")
-    f:write('{game="2048",board={{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,1.5}}}')
-    f:close()
-    T.eq(save.load_state(), nil)
+    write_save('{board={{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}}}')
+    local loaded, err = save.load_state()
+    T.eq(err, nil)
+    T.eq(loaded.game, "2048")
+    teardown_tmp_save_path()
+  end)
+
+  T.it("rejects unsupported game id", function()
+    setup_tmp_save_path()
+    write_save('{game="other",board={{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}}}')
+    local loaded, err = save.load_state()
+    T.eq(loaded, nil)
+    T.ok(err and err:match("game"))
+    teardown_tmp_save_path()
+  end)
+
+  T.it("rejects invalid numeric save fields", function()
+    setup_tmp_save_path()
+    local fields = {
+      { "score", '"x"' }, { "best", "true" }, { "moves_count", "1.5" },
+      { "score", "-1" }, { "best", "-1" }, { "moves_count", "-1" },
+      { "elapsed_seconds", "-1" }, { "elapsed_seconds", "0/0" },
+      { "elapsed_seconds", "1e309" },
+    }
+    for _, field in ipairs(fields) do
+      write_save('{game="2048",board={{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}},'
+        .. field[1] .. "=" .. field[2] .. "}")
+      local loaded, err = save.load_state()
+      T.eq(loaded, nil)
+      T.ok(err and err:match(field[1]))
+    end
+    teardown_tmp_save_path()
+  end)
+
+  T.it("keeps missing numeric fields compatible", function()
+    setup_tmp_save_path()
+    write_save('{game="2048",board={{0,0,0,0},{0,0,0,0},{0,0,0,0},{0,0,0,0}}}')
+    local loaded, err = save.load_state()
+    T.eq(err, nil)
+    T.eq(loaded.score, nil)
+    T.eq(loaded.best, nil)
+    T.eq(loaded.moves_count, nil)
+    T.eq(loaded.elapsed_seconds, nil)
     teardown_tmp_save_path()
   end)
 end)

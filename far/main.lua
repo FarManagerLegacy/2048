@@ -28,7 +28,14 @@ local function main()
     now = win.Clock --luacheck: read_globals win.Clock
   end
 
-  local saved = save.load_state()
+  local saved, load_err = save.load_state()
+  if load_err then
+    local choice = far.Message("Save load error:\n" .. load_err
+      .. "\nStart a new game?", config.DIALOG_TITLE, ";Ok;Cancel","w")
+    if choice ~= 1 then return end
+    save.clear_save()
+    saved = nil
+  end
   local initial_state = saved and board_mod.compute_status(saved.board) ~= "game_over" and saved or nil
   local session = game_session.new({ state = initial_state, clock = now })
   local screen = win.GetConsoleScreenBufferInfo() --luacheck: read_globals win.GetConsoleScreenBufferInfo

@@ -15,6 +15,20 @@ local function read_key()
   return key
 end
 
+function M.corrupt_save_screen(message)
+  io.write("\x1b[2J\x1b[H")
+  io.write("Save error: " .. tostring(message) .. "\n")
+  io.write("R/New: start a new game    Q/Cancel: quit\n")
+  io.flush()
+  while true do
+    if platform.kbhit() then
+      local key = read_key()
+      if key == "restart" or key == "quit" then return key end
+    end
+    platform.sleep(config.END_SCREEN_TICK)
+  end
+end
+
 function M.game_over_screen(board, score, best, moves_count, elapsed_seconds, can_undo, palette)
   local tiles = tiles_mod.board_to_tiles(board)
   local start = platform.now()
