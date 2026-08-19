@@ -48,6 +48,19 @@ T.describe("adaptive frame pacing", function()
 end)
 
 T.describe("SlideFSM", function()
+  T.it("computes slide duration from the longest move", function()
+    local old_duration = constants.SLIDE_DURATION_PER_CELL
+    constants.SLIDE_DURATION_PER_CELL = 0.025
+    local moves = {
+      { fr = 1, fc = 1, tr = 1, tc = 3, value = 2 },
+      { fr = 4, fc = 4, tr = 4, tc = 4, value = 4 },
+    }
+    local ok, actual = pcall(fsm.slide_duration, moves)
+    constants.SLIDE_DURATION_PER_CELL = old_duration
+    T.ok(ok, "expected a shared slide duration helper")
+    T.near(actual, 0.050, 1e-6)
+  end)
+
   T.it("an empty move list is immediately done", function()
     local s = fsm.new_slide({})
     T.ok(s:is_done())

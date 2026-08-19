@@ -48,6 +48,10 @@ function M.max_distance(moves)
   return max_distance
 end
 
+function M.slide_duration(moves)
+  return M.max_distance(moves) * constants.SLIDE_DURATION_PER_CELL
+end
+
 function M.geometric_steps_per_cell(horizontal)
   if horizontal then return geometry.CELL_W + geometry.GAP_X end
   return constants.USE_HALF_BLOCKS and ROW_STEPS_PER_CELL * 2 or ROW_STEPS_PER_CELL
@@ -55,7 +59,6 @@ end
 
 function M.new_slide(moves, frame_interval)
   local raw_steps = 0
-  local max_distance = M.max_distance(moves)
   local horizontal_steps = M.geometric_steps_per_cell(true)
   local vertical_steps = M.geometric_steps_per_cell(false)
   for _, mv in ipairs(moves) do
@@ -63,7 +66,7 @@ function M.new_slide(moves, frame_interval)
       math.abs(mv.tc - mv.fc) * horizontal_steps
       + math.abs(mv.tr - mv.fr) * vertical_steps)
   end
-  local duration = max_distance * constants.SLIDE_DURATION_PER_CELL
+  local duration = M.slide_duration(moves)
   local max_steps = math.floor(duration / (frame_interval or constants.ANIM_FRAME_DELAY))
   return setmetatable({
     moves = moves,

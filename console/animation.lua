@@ -46,7 +46,7 @@ function M.play_move(new_board, moves, spawned_board, spawned, stats, palette)
   while not animation:is_done() do
     local phase = animation.phases[animation.phase_idx]
     play_phase(phase, stats, palette, delays[animation.phase_idx],
-      animation.phase_idx == 1 and constants.SLIDE_DURATION_SECONDS or nil)
+      animation.phase_idx == 1 and animation_fsm.slide_duration(moves) or nil)
     animation:advance(0)
   end
 end
@@ -56,7 +56,7 @@ function M.animate_slide(moves, score, best, moves_count, elapsed_seconds, palet
   play_phase(phase, {
     score = score, best = best, moves_count = moves_count,
     elapsed_seconds = elapsed_seconds,
-  }, palette, constants.ANIM_FRAME_DELAY, constants.SLIDE_DURATION_SECONDS)
+  }, palette, constants.ANIM_FRAME_DELAY, animation_fsm.slide_duration(moves))
 end
 
 function M.animate_merge_pop(board, moves, score, best, moves_count, elapsed_seconds, palette)
