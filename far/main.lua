@@ -14,20 +14,17 @@ local animation_fsm = loader("lib/animation_fsm")
 local tiles_mod = loader("lib/tiles")
 local save = loader("lib/save")
 local layout = loader("far/dialog_layout")
+local geometry = loader("lib/geometry")
 local view = loader("far/dialog_view")
 local status_effect = loader("lib/status_effect")
 local ai = loader("lib/ai")
 local arrow_glyphs = { up = "↑", down = "↓", left = "←", right = "→" }
 
+local now = win.Clock --luacheck: read_globals win.Clock
+  or function() return far.FarClock() / 1000000 end
+
 local uuid = win.Uuid("C2087654-1C22-4E79-95C3-5B420CEEB481")
 local function main()
-  local now
-  if far.FarClock then
-    now = function() return far.FarClock() / 1000000 end
-  else
-    now = win.Clock --luacheck: read_globals win.Clock
-  end
-
   local saved, load_err = save.load_state()
   if load_err then
     local choice = far.Message("Save load error:\n" .. load_err
@@ -38,13 +35,13 @@ local function main()
   end
   local initial_state = saved and board_mod.compute_status(saved.board) ~= "game_over" and saved or nil
   local session = game_session.new({ state = initial_state, clock = now })
-  local screen = win.GetConsoleScreenBufferInfo() --luacheck: read_globals win.GetConsoleScreenBufferInfo
+  geometry.set_board_dimensions(session.board_width, session.board_height)
+  local screen = win.GetConsoleScreenBufferInfo()
   local geom = layout.fit_to_height(screen.WindowBottom - screen.WindowTop + 1, constants.GEOMETRY_UNIT)
   local far_buffer = far_backend.create_buffer()
   local items, item_ids = layout.build_items(F, geom, far_buffer)
 
-  local hdlg
-  local closed = false
+  local hDlg
   local timer
   local clock_timer
   local active_animation
@@ -79,9 +76,9 @@ local function main()
   end
 
   local function request_board_redraw()
-    if hdlg and not closed then
+    if hDlg then
       local started = now()
-      hdlg:ShowItem(item_ids.usercontrol, 1)
+      hDlg:ShowItem(item_ids.usercontrol, 1)
       local elapsed = now() - started
       average_render_time = 0.8 * average_render_time + 0.2 * elapsed
     end
@@ -96,7 +93,7 @@ local function main()
   end
 
   local function update_view()
-    view_state = view.update(hdlg, item_ids, geom, session, auto_play, view_state) or view_state
+    view_state = view.update(hDlg, item_ids, geom, session, auto_play, view_state) or view_state
   end
 
   local function save_current()
@@ -175,7 +172,7 @@ local function main()
 
   schedule_auto_move = function()
     far.AdvControl(F.ACTL_SYNCHRO, function()
-      if not closed and auto_play then start_ai_move() end
+      if hDlg and auto_play then start_ai_move() end
     end)
   end
 
@@ -187,7 +184,7 @@ local function main()
 
   local function on_timer(handle)
     handle.Enabled = false
-    if closed then return end
+    if not hDlg then return end
     if active_animation and not active_animation:is_done() then
       active_animation:advance(config.FRAMES_PER_TICK)
       request_board_redraw()
@@ -277,8 +274,8 @@ local function main()
   if item_ids.best_button then button_actions[item_ids.best_button] = best_move end
 
   local function draw_key_marker(key)
-    local dialog_rect = hdlg:GetDlgRect()
-    local moves_rect = hdlg:GetItemPosition(item_ids.moves)
+    local dialog_rect = hDlg:GetDlgRect()
+    local moves_rect = hDlg:GetItemPosition(item_ids.moves)
     local color = far.AdvControl(F.ACTL_GETCOLOR, far.Colors.COL_DIALOGHIGHLIGHTTEXT)
     local arrow = arrow_glyphs[key]
     if dialog_rect and moves_rect and color and arrow then
@@ -306,8 +303,8 @@ local function main()
     if key == "undo" and session:can_undo() then
       undo_last_move()
     elseif key == "palette_prev" then
-      hdlg:SetFocus(item_ids.palette_prev_button)
-      return hdlg:send(F.DN_BTNCLICK, item_ids.palette_prev_button)
+      hDlg:SetFocus(item_ids.palette_prev_button)
+      return hDlg:send(F.DN_BTNCLICK, item_ids.palette_prev_button)
     elseif session.status == "game_over" then --luacheck: ignore 542
       --nop
     elseif is_arrow then
@@ -330,33 +327,31 @@ local function main()
     })[name]
   end
 
-  local function dlg_proc(dialog, msg, param1, param2)
-    if msg == F.DN_INITDIALOG then
-      hdlg = dialog
-      timer = far.Timer(config.TIMER_INTERVAL_MS, on_timer)
-      timer.Enabled = false
-      clock_timer = far.Timer(config.CLOCK_INTERVAL_MS, function()
-        if not closed then
-          if auto_play and auto_direction and auto_ready_at then
-            if now() >= auto_ready_at then
-              auto_ready_at = nil
-              schedule_auto_move()
-            else
-              clock_timer.Interval = math.max(1, math.floor((auto_ready_at - now()) * 1000 + 0.5))
-            end
-          elseif session.status == "won" or session.status == "game_over" then
-            request_board_redraw()
+  local function init_dialog(dialog)
+    hDlg = dialog
+    timer = far.Timer(config.TIMER_INTERVAL_MS, on_timer)
+    timer.Enabled = false
+    clock_timer = far.Timer(config.CLOCK_INTERVAL_MS, function()
+      if hDlg then
+        if auto_play and auto_direction and auto_ready_at then
+          if now() >= auto_ready_at then
+            auto_ready_at = nil
+            schedule_auto_move()
           else
-            update_view()
+            clock_timer.Interval = math.max(1, math.floor((auto_ready_at - now()) * 1000 + 0.5))
           end
+        elseif session.status == "won" or session.status == "game_over" then
+          request_board_redraw()
+        else
+          update_view()
         end
-      end)
-      clock_timer.Enabled = true
-      update_view()
-      return true
-    end
+      end
+    end)
+    clock_timer.Enabled = true
+    update_view()
+  end
 
-    if msg == F.DN_DRAWDLGITEM and param1 == item_ids.usercontrol then
+  local function draw_usercontrol()
       local visual_status = session:has_pending_score() and "" or session.status
       local effect = status_effect.compute(visual_status, session.paused, session.palette,
         now(), session:victory_effect())
@@ -365,57 +360,57 @@ local function main()
         tile_effect = effect.tile_effect,
         palette = session.palette,
       })
-      return true
-    end
+  end
 
-    if msg == F.DN_BTNCLICK then
-      local prev_auto_play = auto_play
-      set_auto_play(false)
-      if active_animation then return true end
-      local action = button_actions[param1]
-      if session.paused and param1 ~= item_ids.pause_button then toggle_pause() end
-      if param1 == item_ids.auto_button then
-        if not prev_auto_play then
-          set_auto_play(true)
-          start_ai_move()
-        end
-      else
-        action()
+  local function handle_button(item_id)
+    local prev_auto_play = auto_play
+    set_auto_play(false)
+    if active_animation then return true end
+    local action = button_actions[item_id]
+    if session.paused and item_id ~= item_ids.pause_button then toggle_pause() end
+    if item_id == item_ids.auto_button then
+      if not prev_auto_play then
+        set_auto_play(true)
+        start_ai_move()
       end
-      return true
+    else
+      action()
     end
+    return true
+  end
 
-    if msg == F.DN_CTLCOLORDLGITEM and param1 == item_ids.status then
+  local function handle_colors(item_id, param2)
+    if item_id == item_ids.status then
       return view.apply_status_colors(
         session:has_pending_score() and "" or session.status, param2)
     end
 
-    if msg == F.DN_CTLCOLORDLGITEM and param1 == item_ids.time then
+    if item_id == item_ids.time then
       local disabled = far.AdvControl(F.ACTL_GETCOLOR, far.Colors.COL_DIALOGDISABLED)
       return view.apply_disabled_colors(param2, disabled)
     end
 
-    if msg == F.DN_CTLCOLORDLGITEM and (
-      param1 == item_ids.score or param1 == item_ids.score_label
-      or param1 == item_ids.best or param1 == item_ids.best_label
-    ) then
+    if item_id == item_ids.score or item_id == item_ids.score_label
+        or item_id == item_ids.best or item_id == item_ids.best_label then
       local disabled = far.AdvControl(F.ACTL_GETCOLOR, far.Colors.COL_DIALOGDISABLED)
       return view.apply_footer_colors(
-        param1 == item_ids.best and session.score + session.pending_score > session.best,
+        item_id == item_ids.best and session.score + session.pending_score > session.best,
         param2, disabled)
     end
+    return nil
+  end
 
-    if msg == (F.DN_CONTROLINPUT or F.DN_KEY) then
-      if F.DN_CONTROLINPUT and param2.EventType == F.FOCUS_EVENT then
-        if param2.SetFocus == false and not auto_play then
+  local function handle_key_input(item_id, record)
+      if F.DN_CONTROLINPUT and record.EventType == F.FOCUS_EVENT then
+        if record.SetFocus == false and not auto_play then
           session:set_paused(true)
           save_current()
           update_view()
-          hdlg:SetFocus(item_ids.usercontrol)
+          hDlg:SetFocus(item_ids.usercontrol)
         end
         return nil
       end
-      if F.DN_CONTROLINPUT and param2.EventType ~= F.KEY_EVENT then return nil end
+      if F.DN_CONTROLINPUT and record.EventType ~= F.KEY_EVENT then return nil end
 
       if auto_play then
         set_auto_play(false)
@@ -424,34 +419,37 @@ local function main()
       local key
       --luacheck: read_globals far.KeyToName
       if far.KeyToName then
-        key = far.KeyToName(param2)
+        key = far.KeyToName(record)
       else
-        key = far.InputRecordToName(param2)
-        if 0~=bit64.band(F.SHIFT_PRESSED, param2.ControlKeyState) and not key:match("Shift") then
+        key = far.InputRecordToName(record)
+        if 0~=bit64.band(F.SHIFT_PRESSED, record.ControlKeyState) and not key:match("Shift") then
           key = "Shift"..key
         end
       end
 
-      return dispatch_key(normalize_key(key, param2), param1)
-    end
+      return dispatch_key(normalize_key(key), item_id)
+  end
 
-    if msg == F.DN_CLOSE then
-      if closed then return true end
-      closed = true
-      hdlg = nil
-      pending_key = nil
-      session:settle_score()
-      active_animation = nil
-      save_current()
-      close_timers()
-      auto_play = false
+  local function dlg_proc(dialog, msg, param1, param2)
+    if msg == F.DN_INITDIALOG then init_dialog(dialog); return true end
+    if msg == F.DN_DRAWDLGITEM and param1 == item_ids.usercontrol then
+      draw_usercontrol()
       return true
+    end
+    if msg == F.DN_BTNCLICK then return handle_button(param1) end
+    if msg == F.DN_CTLCOLORDLGITEM then return handle_colors(param1, param2) end
+    if msg == (F.DN_CONTROLINPUT or F.DN_KEY) then
+      return handle_key_input(param1, param2)
     end
     return nil
   end
 
   far.Dialog(uuid, -1, -1, geom.dialog_w, geom.dialog_h,
     config.DIALOG_TITLE, items, 0, dlg_proc)
+  hDlg = nil
+  session:settle_score()
+  save_current()
+  close_timers()
 end
 
 if isMain then

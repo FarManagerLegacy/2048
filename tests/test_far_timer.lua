@@ -34,15 +34,16 @@ far = { --luacheck: allow_defined
     return timer
   end,
   Dialog = function(_, _, _, _, _, _, _, _, callback)
-    local hdlg = {
+    local hDlg = {
       ShowItem = function()
         clock = clock + redraw_seconds
       end,
       SetFocus = function(_, item) focused_item = item end,
-      send = function(_, message, item) return dialog_proc(hdlg, message, item, nil) end,
+      send = function(self, message, item) return dialog_proc(self, message, item, nil) end,
     }
     dialog_proc = callback
-    callback(hdlg, F.DN_INITDIALOG, 0, nil)
+    callback(hDlg, F.DN_INITDIALOG, 0, nil)
+    coroutine.yield()
   end,
   SendDlgMessage = function(_, message, item)
     if (message == "DM_SHOWITEM" or message == "DM_REDRAW") and dialog_proc then
@@ -129,21 +130,32 @@ local stubs = {
 }
 loader = function(name) return stubs[name] or root_loader(name) end --luacheck: allow_defined
 
+local main_thread
+local function run_main()
+  local chunk = assert(loadfile("far/main.lua"))
+  setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+  main_thread = coroutine.create(function() chunk()() end)
+  assert(coroutine.resume(main_thread))
+end
+
+local function close_main()
+  assert(coroutine.resume(main_thread))
+  main_thread = nil
+end
+
 T.describe("far timer input", function()
   T.it("delays auto moves after the first when animations are skipped", function()
     animation_timer, clock_timer, synchro_callback, move_directions = nil, nil, nil, {}
     local constants = root_loader("lib/constants")
     local old_skip, old_delay = constants.SKIP_ANIMATIONS, constants.AUTO_PLAY_MIN_MOVE_DELAY
     constants.SKIP_ANIMATIONS, constants.AUTO_PLAY_MIN_MOVE_DELAY = true, 1
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
 
     dialog_proc({}, F.DN_BTNCLICK, 6, nil)
     synchro_callback()
     local moves = #move_directions
     constants.SKIP_ANIMATIONS, constants.AUTO_PLAY_MIN_MOVE_DELAY = old_skip, old_delay
+    close_main()
     animation_timer, clock_timer, synchro_callback, move_directions = nil, nil, nil, {}
     T.eq(moves, 1)
   end)
@@ -153,23 +165,18 @@ T.describe("far timer input", function()
     move_directions = {}
     local constants = root_loader("lib/constants")
     constants.SKIP_ANIMATIONS = true
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
 
     dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "right" })
     local enabled = animation_timer.timer.Enabled
     constants.SKIP_ANIMATIONS = nil
+    close_main()
     animation_timer, move_directions = nil, {}
     T.eq(enabled, false)
   end)
 
   T.it("keeps the first arrow key pressed during animation", function()
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
     T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, KeyDown = true, name = "right" }), true)
 
     clock = 0.500
@@ -192,14 +199,12 @@ T.describe("far timer input", function()
       animation_timer.callback(animation_timer.timer)
     end
     T.eq(animation_timer.timer.Enabled, false)
+    close_main()
   end)
 
   T.it("keeps auto play running across focus records", function()
     animation_timer, synchro_callback = nil, nil
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
 
     local moves_before = #move_directions
     dialog_proc({}, F.DN_BTNCLICK, 6, nil)
@@ -209,44 +214,39 @@ T.describe("far timer input", function()
     config.FRAMES_PER_TICK = 100
     for _ = 1, 2 do animation_timer.callback(animation_timer.timer) end
     T.eq(synchro_callback ~= nil, true)
+    close_main()
   end)
 
   T.it("toggles pause with Pause and restores focus to the game field", function()
     animation_timer, focused_item = nil, nil
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
 
     dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "Pause" })
     T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 1, { EventType = F.KEY_EVENT, name = "Pause" }), true)
     T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.FOCUS_EVENT, SetFocus = false }), nil)
     T.eq(focused_item, 1)
+    close_main()
   end)
 
   T.it("uses Shift+P to click the previous palette button", function()
     animation_timer, palette_states = nil, {}
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
 
     T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 1,
       { EventType = F.KEY_EVENT, name = "p", ControlKeyState = F.SHIFT_PRESSED }), true)
     T.eq(palette_states[#palette_states], "sky")
     T.eq(focused_item, 8)
+    close_main()
   end)
 
   T.it("stops auto play when the game is already over", function()
     animation_timer, synchro_callback = nil, nil
     auto_play_states, force_terminal = {}, true
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
 
     dialog_proc({}, F.DN_BTNCLICK, 6, nil)
     T.eq(auto_play_states[#auto_play_states], false)
+    close_main()
     force_terminal = nil
   end)
 
@@ -254,10 +254,7 @@ T.describe("far timer input", function()
     animation_timer, redraw_seconds = nil, 0.1
     animation_frame_intervals = {}
     config.FRAMES_PER_TICK = 100
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
 
     dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "right" })
     for _ = 1, 10 do
@@ -266,6 +263,7 @@ T.describe("far timer input", function()
     end
     dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "left" })
     T.ok(animation_frame_intervals[2] > animation_frame_intervals[1])
+    close_main()
     redraw_seconds = 0
   end)
 
@@ -274,13 +272,11 @@ T.describe("far timer input", function()
     board = {
       { 2, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, { 0, 0, 0, 0 },
     }
-    local chunk = assert(loadfile("far/main.lua"))
-    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
-    local main = chunk()
-    main()
+    run_main()
 
     T.eq(dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "left" }), true)
     T.eq(#move_directions, 1)
+    close_main()
   end)
 
 end)
