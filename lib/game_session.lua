@@ -9,8 +9,8 @@ local M = {}
 local Session = {}
 Session.__index = Session
 
-local function default_new_game(spawn_tile)
-  local board = board_mod.new_empty_board()
+local function default_new_game(spawn_tile, width, height)
+  local board = board_mod.new_empty_board(width, height)
   spawn_tile(board)
   spawn_tile(board)
   return board
@@ -49,10 +49,13 @@ function M.new(options)
   local spawn_tile = options.spawn_tile or board_mod.spawn_tile
   local saved = options.state
   local board = saved and board_mod.copy_board(saved.board) or default_new_game(spawn_tile)
+  local board_width, board_height = #(board[1] or {}), #board
   local status = board_mod.compute_status(board)
 
   local self = setmetatable({
     board = board,
+    board_width = board_width,
+    board_height = board_height,
     score = saved and (saved.score or 0) or 0,
     best = saved and (saved.best or 0) or 0,
     moves_count = saved and (saved.moves_count or 0) or 0,
@@ -197,7 +200,8 @@ function Session:restart()
   if self:has_pending_score() then return false end
   self:_push_history()
   self.best = math.max(self.best, self.score)
-  self.board = self.new_game and self.new_game() or default_new_game(self.spawn_tile)
+  self.board = self.new_game and self.new_game()
+    or default_new_game(self.spawn_tile, self.board_width, self.board_height)
   self.score = 0
   self.pending_score = 0
   self.moves_count = 0
@@ -250,6 +254,8 @@ end
 function Session:snapshot()
   return {
     board = board_mod.copy_board(self.board),
+    board_width = self.board_width,
+    board_height = self.board_height,
     score = self.score,
     best = math.max(self.best, self.score),
     moves_count = self.moves_count,

@@ -3,7 +3,6 @@ local render = loader("console/render")
 local tiles_mod = loader("lib/tiles")
 local util = loader("lib/util")
 local platform = loader("console/platform")
-local constants = loader("lib/constants")
 local config = loader("console/config")
 local status_effect = loader("lib/status_effect")
 
@@ -53,11 +52,10 @@ end
 
 function M.win_screen(board, score, best, moves_count, elapsed_seconds, can_undo, palette)
   local tiles = tiles_mod.board_to_tiles(board)
-  local BOARD_SIZE = constants.BOARD_SIZE
   local empties = {}
-  for r = 1, BOARD_SIZE do
-    for c = 1, BOARD_SIZE do
-      if board[r][c] == 0 then empties[#empties + 1] = { r - 1, c - 1 } end
+  for r, row in ipairs(board) do
+    for c, value in ipairs(row) do
+      if value == 0 then empties[#empties + 1] = { r - 1, c - 1 } end
     end
   end
   local sparkle_chars = { "*", "+", "." }

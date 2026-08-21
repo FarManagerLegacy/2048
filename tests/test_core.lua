@@ -9,6 +9,8 @@ local color = loader("lib/color")
 local geometry = loader("lib/geometry")
 local layout = loader("far/dialog_layout")
 local save = loader("lib/save")
+local constants = loader("lib/constants")
+local game_session = loader("lib/game_session")
 
 math.randomseed(12345)
 
@@ -235,21 +237,39 @@ T.describe("save/load round trip", function()
     teardown_tmp_save_path()
   end)
 
-  T.it("rejects saved rectangular geometry", function()
+  T.it("loads board dimensions from a rectangular save without dimension fields", function()
     setup_tmp_save_path()
-    local b = {
-      { 0, 0, 0, 0, 0 },
-      { 0, 0, 0, 0, 0 },
-      { 0, 0, 0, 0, 2 },
-    }
-    save.save_state({
-      board = b,
-      score = 0, best = 0, moves_count = 0,
-      elapsed_seconds = 0, palette = "classic",
-    })
+    write_save('{board={{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,2}}}')
+    local loaded, err = save.load_state()
+    T.eq(err, nil)
+    T.eq(#loaded.board[1], 5)
+    T.eq(#loaded.board, 3)
+    T.eq(constants.BOARD_WIDTH, 5)
+    T.eq(constants.BOARD_HEIGHT, 3)
+    constants.set_board_dimensions(4, 4)
+    teardown_tmp_save_path()
+  end)
+
+  T.it("does not change board dimensions for an invalid saved board", function()
+    setup_tmp_save_path()
+    constants.set_board_dimensions(5, 3)
+    write_save('{board={{0,0},{0}}}')
     local loaded = save.load_state()
     T.eq(loaded, nil)
+    T.eq(constants.BOARD_WIDTH, 5)
+    T.eq(constants.BOARD_HEIGHT, 3)
+    constants.set_board_dimensions(4, 4)
     teardown_tmp_save_path()
+  end)
+
+  T.it("restarts a loaded rectangular session at the same dimensions", function()
+    local session = game_session.new({
+      state = { board = { { 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 2 } } },
+      spawn_tile = function() end,
+    })
+    session:restart()
+    T.eq(#session.board, 3)
+    T.eq(#session.board[1], 5)
   end)
 
   T.it("clear_save removes file", function()

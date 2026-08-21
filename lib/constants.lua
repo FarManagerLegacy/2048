@@ -1,10 +1,14 @@
 -- Pure numeric/tuning constants.
 local M = {}
 
--- Game rules: these values define the board contract and spawn behavior.
+-- Initial board dimensions; active values are replaced after a valid save loads.
 M.BOARD_SIZE = 4
 M.BOARD_WIDTH = M.BOARD_SIZE
 M.BOARD_HEIGHT = M.BOARD_SIZE
+
+function M.set_board_dimensions(width, height)
+  M.BOARD_WIDTH, M.BOARD_HEIGHT = width, height
+end
 M.WIN_INDEX = 11
 M.SPAWN_FOUR_PROBABILITY = 0.1
 

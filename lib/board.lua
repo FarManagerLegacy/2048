@@ -16,8 +16,9 @@ local function dimensions(board)
   return constants.BOARD_WIDTH, constants.BOARD_HEIGHT
 end
 
-function M.new_empty_board()
+function M.new_empty_board(width, height)
   local BOARD_WIDTH, BOARD_HEIGHT = dimensions()
+  BOARD_WIDTH, BOARD_HEIGHT = width or BOARD_WIDTH, height or BOARD_HEIGHT
   local b = {}
   for r = 1, BOARD_HEIGHT do
     b[r] = {}

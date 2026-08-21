@@ -14,14 +14,15 @@ end
 M.SAVE_PATH = save_dir() .. "/2048.save"
 
 local function valid_board(b)
-  if type(b) ~= "table" or #b ~= constants.BOARD_HEIGHT then return false end
+  if type(b) ~= "table" or #b == 0 or type(b[1]) ~= "table" or #b[1] == 0 then return false end
+  local width = #b[1]
   for _, row in ipairs(b) do
-    if type(row) ~= "table" or #row ~= constants.BOARD_WIDTH then return false end
+    if type(row) ~= "table" or #row ~= width then return false end
     for _, value in ipairs(row) do
       if type(value) ~= "number" or value < 0 or value % 1 ~= 0 then return false end
     end
   end
-  return true
+  return true, width, #b
 end
 
 local function serialize(value)
@@ -44,7 +45,8 @@ local function serialize(value)
 end
 
 function M.save_state(state)
-  if type(state) ~= "table" or not valid_board(state.board) then
+  local valid = type(state) == "table" and valid_board(state.board)
+  if not valid then
     return false
   end
   local data = {
@@ -86,7 +88,8 @@ function M.load_state()
   data.game = data.game or "2048"
   if data.game ~= "2048" then return nil, "Unsupported game in save: " .. tostring(data.game) end
   local b = data.board
-  if not valid_board(b) then return nil, "Invalid board format in save" end
+  local valid, width, height = valid_board(b)
+  if not valid then return nil, "Invalid board format in save" end
   for _, field in ipairs({ "score", "best", "moves_count" }) do
     local value = data[field]
     if value ~= nil and (type(value) ~= "number" or value < 0 or value % 1 ~= 0) then
@@ -98,6 +101,7 @@ function M.load_state()
       or elapsed ~= elapsed or elapsed == math.huge or elapsed == -math.huge) then
     return nil, "Invalid numeric field elapsed_seconds"
   end
+  constants.set_board_dimensions(width, height)
   return data
 end
 
