@@ -97,6 +97,8 @@ T.describe("render: render_frame smoke test (stubbed winapi)", function()
     })
     io.write = old_write
     T.ok(captured:find("10 +4", 1, true) ~= nil)
+    T.ok(captured:find("\x1b[?2026h", 1, true) ~= nil)
+    T.ok(captured:find("\x1b[?2026l", 1, true) ~= nil)
   end)
 
   T.it("renders tile digits in bold", function()
@@ -155,6 +157,43 @@ T.describe("render: render_frame smoke test (stubbed winapi)", function()
     T.ok(captured:find(
       "\x1b[48;2;205;193;180m\x1b[38;2;255;255;255m*", 1, true) ~= nil,
       "expected sparkle to retain the board background")
+  end)
+
+  T.it("does not rewrite an unchanged frame", function()
+    --luacheck: ignore 122/io
+    local old_write = io.write
+    io.write = function() end
+    render.render_frame({
+      tiles = {}, score = 777, best = 888, moves_count = 9,
+      elapsed_seconds = 12,
+    })
+    local captured = ""
+    io.write = function(value) captured = captured .. value end
+    render.render_frame({
+      tiles = {}, score = 777, best = 888, moves_count = 9,
+      elapsed_seconds = 12,
+    })
+    io.write = old_write
+    T.eq(captured, "")
+  end)
+
+  T.it("rewrites only rows changed since the previous frame", function()
+    --luacheck: ignore 122/io
+    local old_write = io.write
+    io.write = function() end
+    render.render_frame({
+      tiles = {}, score = 901, best = 999, moves_count = 9,
+      elapsed_seconds = 12,
+    })
+    local captured = ""
+    io.write = function(value) captured = captured .. value end
+    render.render_frame({
+      tiles = {}, score = 902, best = 999, moves_count = 9,
+      elapsed_seconds = 12,
+    })
+    io.write = old_write
+    T.ok(captured:find("\x1b[1;1H", 1, true) ~= nil)
+    T.not_ok(captured:find("\x1b[2;1H", 1, true))
   end)
 end)
 

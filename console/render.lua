@@ -11,6 +11,7 @@ local BOARD_W, BOARD_H = geometry.BOARD_W, geometry.BOARD_H
 
 local M = {}
 M.OUTER_RESET = "\x1b[0m"
+local previous_lines
 
 local PAUSE_SYMBOL = "⏸"
 
@@ -53,7 +54,7 @@ local function render_buffer(buf)
     parts[#parts + 1] = "\x1b[0m\x1b[K"
     lines[#lines + 1] = table.concat(parts)
   end
-  return table.concat(lines, "\n")
+  return lines
 end
 
 local function center_text(text, width)
@@ -128,7 +129,7 @@ function M.render_frame(opts)
     end
   end
 
-  local board_str = render_buffer(buf)
+  local board_lines = render_buffer(buf)
 
   local time_label = util.format_duration(elapsed_seconds) .. (paused and (" " .. PAUSE_SYMBOL) or "")
   local dim = "\x1b[38;2;150;150;150m"
@@ -177,14 +178,25 @@ function M.render_frame(opts)
     footer_lines[#footer_lines + 1] = "\x1b[K"
   end
 
-  local out = {
-    "\x1b[H", header_lines[1], header_lines[2], "\x1b[K", board_str, "",
-  }
-  for _, l in ipairs(footer_lines) do out[#out + 1] = l end
-  out[#out + 1] = "\x1b[J"
+  local frame_lines = { header_lines[1], header_lines[2], "\x1b[K" }
+  for _, line in ipairs(board_lines) do frame_lines[#frame_lines + 1] = line end
+  frame_lines[#frame_lines + 1] = ""
+  for _, l in ipairs(footer_lines) do frame_lines[#frame_lines + 1] = l end
 
-  io.write(table.concat(out, "\n"))
-  io.flush()
+  local out = {}
+  for row, line in ipairs(frame_lines) do
+    if not previous_lines or previous_lines[row] ~= line then
+      out[#out + 1] = string.format("\x1b[%d;1H\x1b[K%s", row, line)
+    end
+  end
+  if previous_lines and #previous_lines > #frame_lines then
+    out[#out + 1] = string.format("\x1b[%d;1H\x1b[J", #frame_lines + 1)
+  end
+  previous_lines = frame_lines
+  if #out > 0 then
+    io.write("\x1b[?2026h" .. table.concat(out) .. "\x1b[?2026l")
+    io.flush()
+  end
 end
 
 return M
