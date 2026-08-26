@@ -9,6 +9,7 @@ local tiles_mod = loader("lib/tiles")
 local board = loader("lib/board")
 local platform = loader("console/platform")
 local ffi = require("ffi")
+local root_loader = loader
 
 T.describe("console.platform", function()
   T.it("exposes the console facade without touching the terminal", function()
@@ -194,6 +195,56 @@ T.describe("render: render_frame smoke test (stubbed winapi)", function()
     io.write = old_write
     T.ok(captured:find("\x1b[1;1H", 1, true) ~= nil)
     T.not_ok(captured:find("\x1b[2;1H", 1, true))
+  end)
+end)
+
+T.describe("console.main smoke test", function()
+  T.it("loads and completes one loop", function()
+    local util = root_loader("lib/util")
+    local old_now = util.now
+    util.now = function() return 0 end
+
+    local saved_loader = loader
+    local rendered = false
+    local stubs = {
+      ["console/platform"] = {
+        prepare_console = function() return true end,
+        restore_console = function() return true end,
+        enter_alternate_screen = function() end,
+        leave_alternate_screen = function() end,
+        kbhit = function() return true end,
+        read_key = function() return "quit" end,
+        flush_input = function() end,
+        now = function() return 0 end,
+      },
+      ["console/render"] = {
+        OUTER_RESET = "",
+        render_frame = function() rendered = true end,
+      },
+      ["console/animation"] = {},
+      ["console/screens"] = {},
+      ["lib/save"] = {
+        load_state = function() return nil end,
+        save_state = function() end,
+      },
+      ["lib/status_effect"] = {
+        compute = function() return { fade = 0, blink = false } end,
+      },
+    }
+    loader = function(name) return stubs[name] or root_loader(name) end
+
+    local chunk = assert(loadfile("console/main.lua"))
+    setfenv(chunk, setmetatable({ loader = loader }, { __index = _G }))
+    local main = chunk()
+    local old_write = io.write
+    io.write = function() end --luacheck: ignore
+    local ok, err = pcall(main)
+    io.write = old_write --luacheck: ignore
+    loader = saved_loader
+    util.now = old_now
+
+    T.ok(ok, err)
+    T.ok(rendered)
   end)
 end)
 
