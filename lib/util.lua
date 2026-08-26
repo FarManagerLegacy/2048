@@ -1,6 +1,8 @@
 -- Small color/number helpers.
 local M = {}
 
+M.now = os.clock
+
 function M.clamp(v, lo, hi)
   if v < lo then return lo end
   if v > hi then return hi end

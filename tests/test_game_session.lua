@@ -5,6 +5,7 @@ local T = loader("tests/test_runner")
 local board = loader("lib/board")
 local session_mod = loader("lib/game_session")
 local constants = loader("lib/constants")
+local util = loader("lib/util")
 
 local function state_for(board_value)
   return {
@@ -18,12 +19,22 @@ local function state_for(board_value)
 end
 
 T.describe("GameSession", function()
+  T.it("uses the shared clock value", function()
+    local original_now = util.now
+    local now = 12
+    util.now = function() return now end
+    local s = session_mod.new({ state = state_for(board.new_empty_board()) })
+    now = 34
+    T.near(s:current_elapsed(), 27)
+    util.now = original_now
+  end)
+
   T.it("moves, records history and restores the snapshot", function()
     local b = board.new_empty_board()
     b[1][1], b[1][2] = 1, 1
+    util.now = function() return 100 end
     local s = session_mod.new({
       state = state_for(b),
-      clock = function() return 100 end,
       spawn_tile = function(target)
         target[4][4] = 1
         return { r = 4, c = 4, value = 1 }
@@ -49,9 +60,9 @@ T.describe("GameSession", function()
   T.it("settles no-merge moves without blocking later moves", function()
     local b = board.new_empty_board()
     b[1][1] = 1
+    util.now = function() return 0 end
     local s = session_mod.new({
       state = state_for(b),
-      clock = function() return 0 end,
       spawn_tile = function(target)
         target[4][4] = 1
         return { r = 4, c = 4, value = 1 }
@@ -72,9 +83,9 @@ T.describe("GameSession", function()
     local now = 0
     local b = board.new_empty_board()
     b[1][1], b[1][2] = 10, 10
+    util.now = function() return now end
     local s = session_mod.new({
       state = state_for(b),
-      clock = function() return now end,
       spawn_tile = function(target)
         target[4][4] = 1
         return { r = 4, c = 4, value = 1 }
@@ -96,9 +107,9 @@ T.describe("GameSession", function()
     local now = 0
     local b = board.new_empty_board()
     b[1][1], b[1][2] = 10, 10
+    util.now = function() return now end
     local s = session_mod.new({
       state = state_for(b),
-      clock = function() return now end,
       spawn_tile = function(target)
         target[4][4] = 1
         return { r = 4, c = 4, value = 1 }
@@ -119,9 +130,9 @@ T.describe("GameSession", function()
   T.it("restart can be undone", function()
     local b = board.new_empty_board()
     b[2][2] = 3
+    util.now = function() return 10 end
     local s = session_mod.new({
       state = state_for(b),
-      clock = function() return 10 end,
       spawn_tile = function(target)
         target[1][1] = 1
         return { r = 1, c = 1, value = 1 }
@@ -137,9 +148,9 @@ T.describe("GameSession", function()
   T.it("keeps a merge score pending until the animation settles", function()
     local b = board.new_empty_board()
     b[1][1], b[1][2] = 1, 1
+    util.now = function() return 0 end
     local s = session_mod.new({
       state = state_for(b),
-      clock = function() return 0 end,
       spawn_tile = function(target)
         target[4][4] = 1
         return { r = 4, c = 4, value = 1 }
@@ -161,9 +172,9 @@ T.describe("GameSession", function()
     b[1][1], b[1][2] = 1, 1
     local state = state_for(b)
     state.score, state.best = 20, 20
+    util.now = function() return 0 end
     local s = session_mod.new({
       state = state,
-      clock = function() return 0 end,
       spawn_tile = function(target)
         target[4][4] = 1
         return { r = 4, c = 4, value = 1 }
@@ -182,7 +193,8 @@ T.describe("GameSession", function()
     local now = 50
     local b = board.new_empty_board()
     b[1][1] = 1
-    local s = session_mod.new({ state = state_for(b), clock = function() return now end })
+    util.now = function() return now end
+    local s = session_mod.new({ state = state_for(b) })
     now = 53
     T.near(s:current_elapsed(), 8)
     s:set_paused(true)
@@ -196,7 +208,6 @@ T.describe("GameSession", function()
   T.it("restores the saved palette in its snapshot", function()
     local s = session_mod.new({
       state = state_for(board.new_empty_board()),
-      clock = function() return 0 end,
     })
     T.eq(s.palette, "ocean")
     T.eq(s:snapshot().palette, "ocean")
@@ -205,11 +216,10 @@ T.describe("GameSession", function()
   T.it("keeps palette changes isolated between sessions", function()
     local first = session_mod.new({
       state = state_for(board.new_empty_board()),
-      clock = function() return 0 end,
     })
     local second_state = state_for(board.new_empty_board())
     second_state.palette = "classic"
-    local second = session_mod.new({ state = second_state, clock = function() return 0 end })
+    local second = session_mod.new({ state = second_state })
 
     local first_palette = first:cycle_palette()
     T.not_ok(first_palette == "ocean")

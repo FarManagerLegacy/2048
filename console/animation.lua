@@ -27,7 +27,7 @@ local function play_phase(phase, stats, palette, delay, duration)
     average_render_time = 0.8 * average_render_time + 0.2 * elapsed
     local remaining = phase.total_steps - phase.step
     if duration and remaining > 0 then
-      platform.sleep(animation_fsm.next_frame_delay(deadline, platform.now(), remaining))
+      platform.sleep(animation_fsm.next_frame_delay(deadline, remaining))
     elseif not duration then
       platform.sleep(delay)
     end

@@ -41,9 +41,14 @@ end)
 
 T.describe("adaptive frame pacing", function()
   T.it("divides the remaining wall-clock budget after rendering", function()
-    T.near(fsm.next_frame_delay(1.0, 0.4, 3, 0.05), 0.2, 1e-6)
-    T.eq(fsm.next_frame_delay(1.0, 1.1, 3), 0)
-    T.eq(fsm.next_frame_delay(1.0, 0.4, 0), 0)
+    local util = loader("lib/util")
+    local original_now = util.now
+    util.now = function() return 0.4 end
+    T.near(fsm.next_frame_delay(1.0, 3), 0.2, 1e-6)
+    util.now = function() return 1.1 end
+    T.eq(fsm.next_frame_delay(1.0, 3), 0)
+    T.eq(fsm.next_frame_delay(1.0, 0), 0)
+    util.now = original_now
   end)
 end)
 

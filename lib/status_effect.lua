@@ -9,8 +9,8 @@ local function luminance(rgb)
   return 0.299 * rgb[1] + 0.587 * rgb[2] + 0.114 * rgb[3]
 end
 
-function M.compute(status, paused, palette, time, victory)
-  time = time or 0
+function M.compute(status, paused, palette, elapsed, victory)
+  local time = elapsed
   if status == "game_over" then
     local board_bg = color.board_bg_color(palette)
     local signal = luminance(board_bg) > 128 and { 35, 35, 35 } or { 235, 235, 235 }
@@ -30,9 +30,9 @@ function M.compute(status, paused, palette, time, victory)
   if victory then
     local tile_bg = color.tile_color(victory.value, palette)
     local signal = color.empty_color(palette)
-    local elapsed = victory.elapsed or time
+    local pulse_elapsed = victory.elapsed or time
     local pulse = 0.5 - 0.5 * math.cos(
-      elapsed * 2 * math.pi / constants.VICTORY_EFFECT_PHASE_SECONDS)
+      pulse_elapsed * 2 * math.pi / constants.VICTORY_EFFECT_PHASE_SECONDS)
     local effect_bg = util.blend(tile_bg, signal, pulse)
     return {
       board_tint = nil,

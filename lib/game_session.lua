@@ -4,6 +4,7 @@
 local board_mod = loader("lib/board")
 local color = loader("lib/color")
 local constants = loader("lib/constants")
+local util = loader("lib/util")
 
 local M = {}
 local Session = {}
@@ -45,7 +46,6 @@ end
 
 function M.new(options)
   options = options or {}
-  local clock = options.clock or os.clock
   local spawn_tile = options.spawn_tile or board_mod.spawn_tile
   local saved = options.state
   local board = saved and board_mod.copy_board(saved.board) or default_new_game(spawn_tile)
@@ -64,8 +64,7 @@ function M.new(options)
     palette = normalize_palette(saved and saved.palette),
     history = {},
     paused = false,
-    time_segment_start = clock(),
-    clock = clock,
+    time_segment_start = util.now(),
     spawn_tile = spawn_tile,
     new_game = options.new_game,
     pending_score = 0,
@@ -103,7 +102,7 @@ function Session:current_elapsed()
   if self.paused or not self.time_segment_start then
     return self.elapsed_seconds
   end
-  return self.elapsed_seconds + (self.clock() - self.time_segment_start)
+  return self.elapsed_seconds + (util.now() - self.time_segment_start)
 end
 
 function Session:freeze_time()
@@ -114,7 +113,7 @@ end
 
 function Session:resume_time()
   if self.status ~= "game_over" and not self.paused then
-    self.time_segment_start = self.clock()
+    self.time_segment_start = util.now()
   end
 end
 
@@ -146,7 +145,7 @@ function Session:move(direction)
     end
     if winning_merge then
       self.victory_target = { row = winning_merge.tr, col = winning_merge.tc }
-      self.victory_started_at = self.clock()
+      self.victory_started_at = util.now()
       self.status = "won"
     else
       self.status = board_mod.compute_status(self.board)
@@ -171,7 +170,7 @@ function Session:victory_effect()
   if not self.victory_target or not self.victory_started_at then return nil end
   local duration = math.ceil(constants.VICTORY_EFFECT_SECONDS /
     constants.VICTORY_EFFECT_PHASE_SECONDS) * constants.VICTORY_EFFECT_PHASE_SECONDS
-  local elapsed = self.clock() - self.victory_started_at
+  local elapsed = util.now() - self.victory_started_at
   local remaining = duration - elapsed
   if remaining <= 0 then return nil end
   return {
@@ -210,7 +209,7 @@ function Session:restart()
   self.victory_target = nil
   self.victory_started_at = nil
   self.paused = false
-  self.time_segment_start = self.clock()
+  self.time_segment_start = util.now()
 end
 
 function Session:undo()
@@ -229,7 +228,7 @@ function Session:undo()
   self.paused = entry.paused or false
   self.time_segment_start = nil
   if self.status ~= "game_over" and not self.paused then
-    self.time_segment_start = self.clock()
+    self.time_segment_start = util.now()
   end
   return true
 end

@@ -37,11 +37,11 @@ local function main()
       if screens.corrupt_save_screen(load_err) ~= "restart" then return end
       save.clear_save()
     elseif saved and board_mod.compute_status(saved.board) ~= "game_over" then
-      session = game_session.new({ state = saved, clock = platform.now })
+      session = game_session.new({ state = saved })
     elseif saved then
       save.clear_save()
     end
-    session = session or game_session.new({ clock = platform.now })
+    session = session or game_session.new()
     geometry.set_board_dimensions(session.board_width, session.board_height)
 
     local function save_current()

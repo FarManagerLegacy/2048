@@ -9,6 +9,7 @@ elseif ffi.os == "Linux" then
 else
   error("console frontend supports only Windows and Linux (ffi.os == '" .. ffi.os .. "')")
 end
+loader("lib/util").now = backend.now
 
 local M = {}
 local KEY_MAP = {

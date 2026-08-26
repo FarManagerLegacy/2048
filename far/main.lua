@@ -18,10 +18,11 @@ local geometry = loader("lib/geometry")
 local view = loader("far/dialog_view")
 local status_effect = loader("lib/status_effect")
 local ai = loader("lib/ai")
-local arrow_glyphs = { up = "↑", down = "↓", left = "←", right = "→" }
+local util = loader("lib/util")
+local platform = loader("far/platform")
+util.now = platform.now
 
-local now = win.Clock --luacheck: read_globals win.Clock
-  or function() return far.FarClock() / 1000000 end
+local arrow_glyphs = { up = "↑", down = "↓", left = "←", right = "→" }
 
 local uuid = win.Uuid("C2087654-1C22-4E79-95C3-5B420CEEB481")
 local function main()
@@ -34,7 +35,7 @@ local function main()
     saved = nil
   end
   local initial_state = saved and board_mod.compute_status(saved.board) ~= "game_over" and saved or nil
-  local session = game_session.new({ state = initial_state, clock = now })
+  local session = game_session.new({ state = initial_state })
   geometry.set_board_dimensions(session.board_width, session.board_height)
   local screen = win.GetConsoleScreenBufferInfo()
   local geom = layout.fit_to_height(screen.WindowBottom - screen.WindowTop + 1, constants.GEOMETRY_UNIT)
@@ -59,7 +60,7 @@ local function main()
     local phase = active_animation.phases[active_animation.phase_idx]
     if active_animation.phase_idx == 1 and slide_deadline then
       local remaining = phase.total_steps - phase.step
-      local delay = animation_fsm.next_frame_delay(slide_deadline, now(), remaining)
+      local delay = animation_fsm.next_frame_delay(slide_deadline, platform.now(), remaining)
       timer.Interval = math.max(1, math.floor(delay * 1000 + 0.5))
       return
     end
@@ -77,9 +78,9 @@ local function main()
 
   local function request_board_redraw()
     if hDlg then
-      local started = now()
+      local started = platform.now()
       hDlg:ShowItem(item_ids.usercontrol, 1)
-      local elapsed = now() - started
+      local elapsed = platform.now() - started
       average_render_time = 0.8 * average_render_time + 0.2 * elapsed
     end
   end
@@ -119,7 +120,7 @@ local function main()
       result.new_board, result.moves, result.spawned_board, result.spawned,
       session.palette, average_render_time
     )
-    slide_deadline = now() + animation_fsm.max_distance(result.moves)
+    slide_deadline = platform.now() + animation_fsm.max_distance(result.moves)
       * constants.SLIDE_DURATION_PER_CELL
     update_view()
     set_animation_timer_interval()
@@ -145,17 +146,17 @@ local function main()
     if direction then
       auto_direction, auto_ready_at = nil, nil
     else
-      local started = now()
+      local started = platform.now()
       direction = ai.find_best_move(session.board, "AI_AUTOPLAY")
       if not direction then
         set_auto_play(false)
         return false
       end
       local ready_at = started + constants.AUTO_PLAY_MIN_MOVE_DELAY
-      if auto_play_has_moved and now() < ready_at then
+      if auto_play_has_moved and platform.now() < ready_at then
         auto_direction, auto_ready_at = direction, ready_at
         if clock_timer then
-          clock_timer.Interval = math.max(1, math.floor((ready_at - now()) * 1000 + 0.5))
+          clock_timer.Interval = math.max(1, math.floor((ready_at - platform.now()) * 1000 + 0.5))
         end
         return true
       end
@@ -334,11 +335,11 @@ local function main()
     clock_timer = far.Timer(config.CLOCK_INTERVAL_MS, function()
       if hDlg then
         if auto_play and auto_direction and auto_ready_at then
-          if now() >= auto_ready_at then
+          if platform.now() >= auto_ready_at then
             auto_ready_at = nil
             schedule_auto_move()
           else
-            clock_timer.Interval = math.max(1, math.floor((auto_ready_at - now()) * 1000 + 0.5))
+            clock_timer.Interval = math.max(1, math.floor((auto_ready_at - platform.now()) * 1000 + 0.5))
           end
         elseif session.status == "won" or session.status == "game_over" then
           request_board_redraw()
@@ -354,7 +355,7 @@ local function main()
   local function draw_usercontrol()
       local visual_status = session:has_pending_score() and "" or session.status
       local effect = status_effect.compute(visual_status, session.paused, session.palette,
-        now(), session:victory_effect())
+         platform.now(), session:victory_effect())
       far_backend.draw_to_far_buffer(far_buffer, {
         tiles = current_tiles(), board_tint = effect.board_tint, fade = effect.fade,
         tile_effect = effect.tile_effect,

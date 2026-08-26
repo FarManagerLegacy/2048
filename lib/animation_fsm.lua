@@ -26,9 +26,9 @@ local function ease_out_cubic(t)
 end
 M.ease_out_cubic = ease_out_cubic
 
-function M.next_frame_delay(deadline, now, remaining_steps)
+function M.next_frame_delay(deadline, remaining_steps)
   if remaining_steps <= 0 then return 0 end
-  return math.max(0, (deadline - now) / remaining_steps)
+  return math.max(0, (deadline - util.now()) / remaining_steps)
 end
 
 -- ---------------------------------------------------------------------

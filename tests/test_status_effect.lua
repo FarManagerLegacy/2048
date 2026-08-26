@@ -1,15 +1,18 @@
 local loader = dofile("loader.lua")()
 local T = loader("tests/test_runner")
 local effect = loader("lib/status_effect")
+local util = loader("lib/util")
 
 T.describe("status_effect", function()
   T.it("fades paused boards and requests blinking", function()
+    util.now = function() return 0 end
     local e = effect.compute("", true, "classic", 0)
     T.eq(e.fade, 0.55)
     T.ok(e.blink)
   end)
 
   T.it("prioritizes terminal effects over pause", function()
+    util.now = function() return 0 end
     local over = effect.compute("game_over", true, "classic", 0)
     local won = effect.compute("won", true, "classic", 0)
     T.eq(over.fade, 0)
@@ -19,6 +22,7 @@ T.describe("status_effect", function()
   end)
 
   T.it("pulses terminal tint by palette and time", function()
+    util.now = function() return 0 end
     local initial = effect.compute("game_over", false, "classic", 0)
     local peak = effect.compute("game_over", false, "classic", math.pi / 6)
     local ocean = effect.compute("game_over", false, "ocean", 0)
