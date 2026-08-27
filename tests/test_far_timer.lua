@@ -13,6 +13,9 @@ local redraw_seconds = 0
 local animation_frame_intervals = {}
 local synchro_callback
 local focused_item
+local next_frame_remaining
+local expected_frame_remaining
+local latest_animation
 local F = {
   -- DN_KEY and far.KeyToName are far2m-only; current FAR uses DN_CONTROLINPUT.
   DN_INITDIALOG = "init", DN_CONTROLINPUT = "input",
@@ -103,7 +106,14 @@ local stubs = {
   ["lib/animation_fsm"] = setmetatable({
     new_move_animation = function(...)
       animation_frame_intervals[#animation_frame_intervals + 1] = select(6, ...)
-      return real_animation_fsm.new_move_animation(...)
+      local animation = real_animation_fsm.new_move_animation(...)
+      expected_frame_remaining = animation.phases[1].total_steps
+      latest_animation = animation
+      return animation
+    end,
+    next_frame_delay = function(deadline, remaining)
+      next_frame_remaining = remaining
+      return math.max(0, (deadline - clock) / remaining)
     end,
   }, { __index = real_animation_fsm }),
   ["lib/game_session"] = {
@@ -200,6 +210,45 @@ T.describe("far timer input", function()
     end
     T.eq(animation_timer.timer.Enabled, false)
     close_main()
+  end)
+
+  T.it("catches up after a delayed animation timer event", function()
+    animation_timer, move_directions = nil, {}
+    next_frame_remaining, expected_frame_remaining = nil, nil
+    config.FRAMES_PER_TICK = 1
+    run_main()
+
+    dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "right" })
+    T.eq(next_frame_remaining, expected_frame_remaining)
+    clock = 10
+    animation_timer.callback(animation_timer.timer)
+
+    T.eq(animation_timer.timer.Enabled, false)
+    dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "left" })
+    T.eq(#move_directions, 2)
+    close_main()
+  end)
+
+  T.it("does not double-count elapsed slide frames", function()
+    animation_timer, move_directions = nil, {}
+    local constants = root_loader("lib/constants")
+    local old_duration = constants.SLIDE_DURATION_PER_CELL
+    constants.SLIDE_DURATION_PER_CELL = 1
+    config.FRAMES_PER_TICK = 1
+    run_main()
+
+    dialog_proc({}, F.DN_CONTROLINPUT, 0, { EventType = F.KEY_EVENT, name = "right" })
+    local phase = latest_animation.phases[1]
+    local start = clock
+    clock = start + phase.duration * 0.4
+    animation_timer.callback(animation_timer.timer)
+    clock = start + phase.duration * 0.8
+    animation_timer.callback(animation_timer.timer)
+    local still_sliding = latest_animation.phase_idx == 1 and not phase:is_done()
+
+    constants.SLIDE_DURATION_PER_CELL = old_duration
+    close_main()
+    T.ok(still_sliding)
   end)
 
   T.it("keeps auto play running across focus records", function()

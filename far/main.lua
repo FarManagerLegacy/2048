@@ -47,6 +47,7 @@ local function main()
   local clock_timer
   local active_animation
   local slide_deadline
+  local animation_phase_started_at
   local pending_key
   local average_render_time = constants.ANIM_FRAME_DELAY
   local auto_play = false
@@ -60,7 +61,7 @@ local function main()
     local phase = active_animation.phases[active_animation.phase_idx]
     if active_animation.phase_idx == 1 and slide_deadline then
       local remaining = phase.total_steps - phase.step
-      local delay = animation_fsm.next_frame_delay(slide_deadline, platform.now(), remaining)
+      local delay = animation_fsm.next_frame_delay(slide_deadline, remaining)
       timer.Interval = math.max(1, math.floor(delay * 1000 + 0.5))
       return
     end
@@ -122,6 +123,8 @@ local function main()
     )
     slide_deadline = platform.now() + animation_fsm.max_distance(result.moves)
       * constants.SLIDE_DURATION_PER_CELL
+    animation_phase_started_at = slide_deadline
+      - animation_fsm.slide_duration(result.moves)
     update_view()
     set_animation_timer_interval()
     if timer then timer.Enabled = true end
@@ -187,9 +190,35 @@ local function main()
     handle.Enabled = false
     if not hDlg then return end
     if active_animation and not active_animation:is_done() then
-      active_animation:advance(config.FRAMES_PER_TICK)
+      local current_time = platform.now()
+      while active_animation and not active_animation:is_done() do
+        local phase = active_animation.phases[active_animation.phase_idx]
+        if phase:is_done() then
+          active_animation:advance(0)
+          if active_animation:is_done() then break end
+          local delay = config.PHASE_DELAYS[active_animation.phase_idx]
+            or constants.ANIM_FRAME_DELAY
+          animation_phase_started_at = animation_phase_started_at
+            + phase.total_steps * delay
+        else
+          local delay
+          if active_animation.phase_idx == 1 then
+            delay = animation_fsm.slide_duration(active_animation.phases[1].moves)
+              / math.max(1, phase.total_steps)
+          else
+            delay = config.PHASE_DELAYS[active_animation.phase_idx]
+              or constants.ANIM_FRAME_DELAY
+          end
+          local target_step = math.floor((current_time - animation_phase_started_at) / delay)
+          local frames = math.max(config.FRAMES_PER_TICK, target_step - phase.step)
+          active_animation:advance(math.max(1, frames))
+          if not phase:is_done() then break end
+        end
+      end
       request_board_redraw()
-      if active_animation.phase_idx ~= 1 then slide_deadline = nil end
+      if active_animation and active_animation.phase_idx ~= 1 then
+        slide_deadline = nil
+      end
       if active_animation:is_done() then
         handle.Enabled = false
         session:settle_score()
