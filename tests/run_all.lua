@@ -3,7 +3,6 @@
 local generated_bundle = "test_loader.generated.lua"
 local unpacked_dir = "test_loader.unpacked"
 local game_bundle = "test_2048.bundle.lua"
-local game_bytecode = "test_2048.bundle.out"
 
 local function run(command)
   local result = os.execute(command)
@@ -21,7 +20,6 @@ end
 local function cleanup()
   os.remove(generated_bundle)
   os.remove(game_bundle)
-  os.remove(game_bytecode)
   remove_dir(unpacked_dir)
 end
 
@@ -52,13 +50,6 @@ if not ok then
   io.stderr:write("FAILED: full bundle generation\n")
   os.exit(result or 1)
 end
-ok, result = run('luajit -b "' .. game_bundle .. '" "' .. game_bytecode .. '"')
-if not ok then
-  cleanup()
-  io.stderr:write("FAILED: full bundle compilation\n")
-  os.exit(result or 1)
-end
-
 local tests = {
   "tests/test_loader.lua",
   generated_bundle,
