@@ -9,9 +9,13 @@ local M = {}
 local average_render_time = constants.ANIM_FRAME_DELAY
 
 local function play_phase(phase, stats, palette, delay, duration)
-  local deadline = duration and platform.now() + duration
+  local started_at = platform.now()
+  local deadline = duration and started_at + duration
+  local frame_delay = duration and duration / math.max(1, phase.total_steps) or delay
   while not phase:is_done() do
-    phase:advance(1)
+    local elapsed = platform.now() - started_at
+    local target_step = math.floor(elapsed / frame_delay)
+    phase:advance(math.max(1, target_step - phase.step))
     local tiles = phase:tiles()
     local started = platform.now()
     render.render_frame({
@@ -23,8 +27,8 @@ local function play_phase(phase, stats, palette, delay, duration)
       elapsed_seconds = stats.elapsed_seconds,
       palette = palette,
     })
-    local elapsed = platform.now() - started
-    average_render_time = 0.8 * average_render_time + 0.2 * elapsed
+    local render_elapsed = platform.now() - started
+    average_render_time = 0.8 * average_render_time + 0.2 * render_elapsed
     local remaining = phase.total_steps - phase.step
     if duration and remaining > 0 then
       platform.sleep(animation_fsm.next_frame_delay(deadline, remaining))
