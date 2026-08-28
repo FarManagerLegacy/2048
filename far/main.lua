@@ -433,10 +433,16 @@ local function main()
   local function handle_key_input(item_id, record)
       if F.DN_CONTROLINPUT and record.EventType == F.FOCUS_EVENT then
         if record.SetFocus == false and not auto_play then
-          session:set_paused(true)
+          if not session.paused then
+            session:set_paused("lostfocus")
+            save_current()
+            update_view()
+          end
+          hDlg:SetFocus(item_ids.usercontrol)
+        elseif record.SetFocus == true and session.paused == "lostfocus" then
+          session:set_paused(false)
           save_current()
           update_view()
-          hDlg:SetFocus(item_ids.usercontrol)
         end
         return nil
       end

@@ -90,7 +90,7 @@ function M.build_items(F, geom, far_buffer)
   add_item("undo_button", {
     "DI_BUTTON", geom.stats_x1 + 6, stats_y,
     geom.stats_x1 + 9, stats_y,
-    0, 0, 0, F.DIF_BTNNOCLOSE + F.DIF_NOBRACKETS, " &↺ ",
+    0, 0, 0, F.DIF_BTNNOCLOSE + F.DIF_NOBRACKETS, " &"..config.UNDO_GLYPH.." ",
   })
   add_item("moves", {
     "DI_TEXT", geom.stats_x1 + 9, stats_y,

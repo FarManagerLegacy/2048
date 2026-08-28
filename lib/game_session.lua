@@ -234,11 +234,11 @@ function Session:undo()
 end
 
 function Session:set_paused(paused)
-  paused = not not paused
+  if paused == nil then paused = false end
   if self.paused == paused then return end
   if paused then
     self:freeze_time()
-    self.paused = true
+    self.paused = paused
   else
     self.paused = false
     self:resume_time()

@@ -1,12 +1,14 @@
 -- FAR dialog text and status presentation.
 local util = loader("lib/util")
+local config = loader("far/config")
 local F = far.Flags
 local bor = bit64.bor
 
 local M = {}
 
 local function footer_label(name, value)
-  return "╡" .. name .. ": " .. string.rep(" ", #value) .. "╞"
+  return config.FOOTER_LEFT_BORDER .. name .. ": " .. string.rep(" ", #value) ..
+    config.FOOTER_RIGHT_BORDER
 end
 
 local function fit_item(hdlg, id, x, y, width)
@@ -46,7 +48,7 @@ function M.update(hdlg, ids, geom, session, auto_play, state)
   set_text(ids.time, time_value)
   local palette_value = session.palette
   set_text(ids.palette, palette_value)
-  set_text(ids.pause_button, session.paused and " ▶ " or " &▶ ")
+  set_text(ids.pause_button, (session.paused and " " or " &")..config.PLAY_GLYPH.." ")
   if ids.auto_button then
     set_text(ids.auto_button, auto_play and "&Auto Stop" or "&Auto Play")
   end
@@ -78,14 +80,20 @@ function M.update(hdlg, ids, geom, session, auto_play, state)
     end
     if footer_changed then
       local y = geom.doublebox_y2
+      local score_width = score_visible and #score_value + 9 or 0
+      local best_width = best_visible and #best_value + 8 or 0
       if score_visible then
         local score_x = geom.doublebox_x1 + 2
-        fit_item(hdlg, ids.score_label, score_x, y, #score_value + 9)
+        fit_item(hdlg, ids.score_label, score_x, y, score_width)
         fit_item(hdlg, ids.score, score_x + 8, y, #score_value)
       end
       if best_visible then
-        local best_x = geom.board_x2 + 2
-        fit_item(hdlg, ids.best_label, best_x, y, #best_value + 8)
+        local best_right = geom.board_x2
+        if score_visible and score_width + best_width + 1 > geom.board_w then
+          best_right = geom.doublebox_x2 - 2
+        end
+        local best_x = best_right - best_width + 1
+        fit_item(hdlg, ids.best_label, best_x, y, best_width)
         fit_item(hdlg, ids.best, best_x + 7, y, #best_value)
       end
     end

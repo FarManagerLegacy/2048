@@ -62,6 +62,7 @@ local tests = {
   "tests/test_console_animation.lua",
   "tests/test_far_backend.lua",
   "tests/test_far_timer.lua",
+  "tests/test_far_dialog_view.lua",
   "tests/test_ai.lua",
 }
 

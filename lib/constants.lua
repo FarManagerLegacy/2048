@@ -22,7 +22,7 @@ M.CHAR_ASPECT = 2 * M.TILE_ASPECT * M.FONT_ASPECT_CORRECTION
 M.GEOMETRY_UNIT = 3
 
 M.ANIM_FRAME_DELAY = 0.016
-M.SLIDE_DURATION_PER_CELL = 0.080
+M.SLIDE_DURATION_PER_CELL = 0.060
 -- Slide easing power: 1 = linear, 2 = quadratic, 3 = cubic; higher values
 -- make the ease-out start faster and brake harder. Shared by both axes.
 M.ANIM_EASE_POWER = 3

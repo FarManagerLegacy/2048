@@ -20,5 +20,10 @@ M.INNER_MARGIN_Y = 0
 M.OUTER_MARGIN_X = 3
 M.OUTER_MARGIN_Y = 1
 M.STATS_TOTAL_WIDTH = 17
-
+M.FOOTER_LEFT_BORDER = "|"
+M.FOOTER_RIGHT_BORDER = "|"
+local useUnicode = loader("far/useunicode")
+if not useUnicode then constants.SHOW_TILE_ACCENTS = false end
+M.PLAY_GLYPH = useUnicode and "▶" or "►"
+M.UNDO_GLYPH = useUnicode and "↺" or "←"
 return M

@@ -99,14 +99,14 @@ T.describe("SlideFSM", function()
   end)
 
   T.it("keeps horizontal slides on the cubic seven-frame curve", function()
-    local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 1, tc = 2, value = 2 } })
-    T.eq(s.total_steps, geometry.CELL_W + geometry.GAP_X > 0 and 5 or 0)
+    local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 1, tc = 2, value = 2 } }, 0.001)
+    T.eq(s.total_steps, geometry.CELL_W + geometry.GAP_X)
     s:advance(1)
     T.near(s:tiles()[1].col, fsm.ease_out_cubic(1 / s.total_steps), 1e-6)
   end)
 
   local function assert_vertical_half_steps(fr, tr, total_steps)
-    local s = fsm.new_slide({ { fr = fr, fc = 1, tr = tr, tc = 1, value = 2 } })
+    local s = fsm.new_slide({ { fr = fr, fc = 1, tr = tr, tc = 1, value = 2 } }, 0.001)
     local start_half = (fr - 1) * geometry.ROW_STRIDE_Y * 2
     local direction = tr > fr and 1 or -1
     T.eq(s.total_steps, total_steps)
@@ -119,15 +119,15 @@ T.describe("SlideFSM", function()
   end
 
   T.it("uses the same easing for vertical slides", function()
-    assert_vertical_half_steps(1, 2, 5)
-    assert_vertical_half_steps(1, 3, 10)
-    assert_vertical_half_steps(4, 1, 15)
+    assert_vertical_half_steps(1, 2, geometry.ROW_STRIDE_Y * 2)
+    assert_vertical_half_steps(1, 3, geometry.ROW_STRIDE_Y * 4)
+    assert_vertical_half_steps(4, 1, geometry.ROW_STRIDE_Y * 6)
   end)
 
   T.it("uses whole-row vertical steps when half blocks are disabled", function()
     local old_use_half_blocks = constants.USE_HALF_BLOCKS
     constants.USE_HALF_BLOCKS = false
-    local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 2, tc = 1, value = 2 } })
+    local s = fsm.new_slide({ { fr = 1, fc = 1, tr = 2, tc = 1, value = 2 } }, 0.001)
     constants.USE_HALF_BLOCKS = old_use_half_blocks
     T.eq(s.total_steps, geometry.ROW_STRIDE_Y)
     s:advance(1)

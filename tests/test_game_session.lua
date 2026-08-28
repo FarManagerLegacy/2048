@@ -205,6 +205,20 @@ T.describe("GameSession", function()
     T.near(s:current_elapsed(), 10)
   end)
 
+  T.it("keeps manual pause independent from focus pause", function()
+    local s = session_mod.new({
+      state = state_for(board.new_empty_board()),
+      clock = function() return 0 end,
+    })
+    s:set_paused("lostfocus")
+    T.eq(s.paused, "lostfocus")
+    s:set_paused(false)
+    T.not_ok(s.paused)
+
+    s:set_paused(true)
+    T.eq(s.paused, true)
+  end)
+
   T.it("restores the saved palette in its snapshot", function()
     local s = session_mod.new({
       state = state_for(board.new_empty_board()),
