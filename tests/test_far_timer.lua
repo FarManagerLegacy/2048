@@ -59,6 +59,7 @@ far = { --luacheck: allow_defined
   InputRecordToName = function(record) return record.name end,
 }
 win = { --luacheck: allow_defined
+  GetVirtualKeys = function() return {} end,
   Uuid = function(value) return value end,
   GetConsoleScreenBufferInfo = function()
     return { WindowTop = 0, WindowBottom = 31 }

@@ -22,7 +22,9 @@ local util = loader("lib/util")
 local platform = loader("far/platform")
 util.now = platform.now
 
-local arrow_glyphs = { up = "↑", down = "↓", left = "←", right = "→" }
+local arrows = { up = "↑", down = "↓", left = "←", right = "→" }
+local buttons = { back = "undo_button", pause = "pause_button", palette_prev = "palette_prev_button" }
+local vknames = win.GetVirtualKeys()
 
 local uuid = win.Uuid("C2087654-1C22-4E79-95C3-5B420CEEB481")
 local function main()
@@ -273,6 +275,7 @@ local function main()
 
   local function toggle_pause()
     if active_animation then return end
+    if session.status == "game_over" then return end
     session:set_paused(not session.paused)
     if timer then
       timer.Enabled = active_animation ~= nil and not active_animation:is_done()
@@ -303,58 +306,49 @@ local function main()
   button_actions[item_ids.palette_next_button] = cycle_palette
   if item_ids.best_button then button_actions[item_ids.best_button] = best_move end
 
-  local function draw_key_marker(key)
+  local function draw_key_marker(arrow_glyph)
     local dialog_rect = hDlg:GetDlgRect()
     local moves_rect = hDlg:GetItemPosition(item_ids.moves)
     local color = far.AdvControl(F.ACTL_GETCOLOR, far.Colors.COL_DIALOGHIGHLIGHTTEXT)
-    local arrow = arrow_glyphs[key]
-    if dialog_rect and moves_rect and color and arrow then
+    if dialog_rect and moves_rect and color then
       far.Text(dialog_rect.Left + moves_rect.Left - 1,
-        dialog_rect.Top + moves_rect.Top, color, arrow)
+        dialog_rect.Top + moves_rect.Top, color, arrow_glyph)
       far.Text()
     end
   end
 
-  local function dispatch_key(key, item_id)
-    if not key then return nil end
-    local is_arrow = arrow_glyphs[key] ~= nil
-    if config.DEBUG and is_arrow then
-      draw_key_marker(key)
+  local function dispatch_key(record, item_id)
+    local key = (vknames[record.VirtualKeyCode] or record.name):lower()
+    if config.DEBUG and arrows[key] then
+      draw_key_marker(arrows[key])
     end
     if active_animation then
-      if is_arrow then
+      if arrows[key] then
         if not pending_key then pending_key = key end
         return true
       end
       return nil
     end
-    local was_paused = session.paused
-    if was_paused then toggle_pause() end
-    if key == "undo" and session:can_undo() then
-      undo_last_move()
-    elseif key == "palette_prev" then
-      hDlg:SetFocus(item_ids.palette_prev_button)
-      return hDlg:send(F.DN_BTNCLICK, item_ids.palette_prev_button)
-    elseif session.status == "game_over" then --luacheck: ignore 542
-      --nop
-    elseif is_arrow then
-      begin_move(key)
-    elseif key=="pause" or (key=="space" and item_id == item_ids.usercontrol) then
-      if not was_paused then toggle_pause() end
-    else
-      return nil
+    if key=="p" then
+      if 0~=bit64.band(F.SHIFT_PRESSED, record.ControlKeyState) then
+        key = "palette_prev"
+      end
+    elseif key=="space" then
+      if item_id == item_ids.usercontrol then
+        key = "pause"
+      end
     end
-    return true
-  end
-
-  local function normalize_key(name)
-    name = tostring(name or ""):lower()
-    return ({
-      left = "left", up = "up", right = "right", down = "down",
-      pause = "pause", space = "space",
-      shiftp = "palette_prev",
-      bs = "undo",
-    })[name]
+    if buttons[key] then
+      local id = item_ids[buttons[key]]
+      hDlg:SetFocus(id)
+      return hDlg:send(F.DN_BTNCLICK, id)
+    elseif session.status == "game_over" then
+      return nil
+    elseif arrows[key] then
+      if session.paused then toggle_pause() end
+      begin_move(key)
+      return true
+    end
   end
 
   local function init_dialog(dialog)
@@ -431,39 +425,36 @@ local function main()
   end
 
   local function handle_key_input(item_id, record)
-      if F.DN_CONTROLINPUT and record.EventType == F.FOCUS_EVENT then
-        if record.SetFocus == false and not auto_play then
-          if not session.paused then
-            session:set_paused("lostfocus")
+      if F.DN_CONTROLINPUT then
+        if record.EventType == F.FOCUS_EVENT then
+          if record.SetFocus == false and not auto_play then
+            if not session.paused then
+              session:set_paused("lostfocus")
+              save_current()
+              update_view()
+            end
+            hDlg:SetFocus(item_ids.usercontrol)
+          elseif record.SetFocus == true and session.paused == "lostfocus" then
+            session:set_paused(false)
             save_current()
             update_view()
           end
-          hDlg:SetFocus(item_ids.usercontrol)
-        elseif record.SetFocus == true and session.paused == "lostfocus" then
-          session:set_paused(false)
-          save_current()
-          update_view()
+          return nil
+        elseif record.EventType ~= F.KEY_EVENT then
+          return nil
         end
-        return nil
       end
-      if F.DN_CONTROLINPUT and record.EventType ~= F.KEY_EVENT then return nil end
 
       if auto_play then
         set_auto_play(false)
         return true
       end
-      local key
       --luacheck: read_globals far.KeyToName
       if far.KeyToName then
-        key = far.KeyToName(record)
-      else
-        key = far.InputRecordToName(record)
-        if 0~=bit64.band(F.SHIFT_PRESSED, record.ControlKeyState) and not key:match("Shift") then
-          key = "Shift"..key
-        end
+        local key = far.KeyToName(record)
+        record = far.NameToInputRecord(key)
       end
-
-      return dispatch_key(normalize_key(key), item_id)
+      return dispatch_key(record, item_id)
   end
 
   local function dlg_proc(dialog, msg, param1, param2)
